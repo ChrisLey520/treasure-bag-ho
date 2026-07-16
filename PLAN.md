@@ -202,8 +202,14 @@ treasure-bag/
 - 共用 utils/ImageUtil（选图 / JPEG 编码 / 存相册 / 体积格式化）
 - [ ] 九宫格切图、图片转 PDF（后补）
 
-### Phase 5：网络类工具（需选型免费 API 并申请网络权限）
-- [ ] 天气、60 秒早报、IP 定位、油价、垃圾分类、据意查句、翻译…
+### Phase 5：网络类工具 ✅ 首批（2026-07-15 完成，共 43 个工具）
+首次声明 `ohos.permission.INTERNET`，全部选用免 key 公开 API：
+- [x] 天气查询（Open-Meteo 地理编码 + 7 日预报，WMO 天气码中文映射）
+- [x] 60 秒早报（60s.viki.moe，开源 60s API）
+- [x] IP 定位（ipwho.is，支持查指定 IP 或本机出口 IP）
+- [x] 网页源码获取（通用 GET，超长截断保护）
+- 共用 utils/HttpUtil（NetworkKit http 封装，超时 + 状态码检查 + destroy）
+- [ ] 油价、垃圾分类、据意查句、翻译、彩票开奖（需继续选型 API，后补）
 
 ### Phase 6：AI 增强类（需第三方付费 API，最后评估）
 - [ ] 去水印、抠图、超分、去摩尔纹…

@@ -40,6 +40,10 @@ import { CompressPage } from './tools/CompressPage';
 import { QrGenPage } from './tools/QrGenPage';
 import { QrScanPage } from './tools/QrScanPage';
 import { OcrPage } from './tools/OcrPage';
+import { WeatherPage } from './tools/WeatherPage';
+import { DailyNewsPage } from './tools/DailyNewsPage';
+import { IpLookupPage } from './tools/IpLookupPage';
+import { WebSourcePage } from './tools/WebSourcePage';
 
 const PREF_NAME = 'treasure_bag';
 const KEY_FAVORITES = 'favorites';
@@ -142,6 +146,10 @@ struct Index {
     else if (name === 'qrgen') { QrGenPage() }
     else if (name === 'qrscan') { QrScanPage() }
     else if (name === 'ocr') { OcrPage() }
+    else if (name === 'weather') { WeatherPage() }
+    else if (name === 'dailynews') { DailyNewsPage() }
+    else if (name === 'iplookup') { IpLookupPage() }
+    else if (name === 'websource') { WebSourcePage() }
   }
 
   build() {

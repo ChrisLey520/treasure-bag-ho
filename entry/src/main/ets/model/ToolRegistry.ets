@@ -58,6 +58,10 @@ export const TOOLS: ToolInfo[] = [
   { id: 'todo', name: '待办事项', desc: '轻量任务清单', emoji: '📝', category: ToolCategory.LIFE, gradient: ['#3494E6', '#EC6EAD'] },
   { id: 'habit', name: '习惯打卡', desc: '连续天数统计', emoji: '🌱', category: ToolCategory.LIFE, gradient: ['#56AB2F', '#A8E063'] },
   { id: 'anniversary', name: '纪念日', desc: '倒数日 · 正数日', emoji: '💝', category: ToolCategory.LIFE, gradient: ['#EC008C', '#FC6767'] },
+  { id: 'weather', name: '天气查询', desc: '全球城市 7 日预报', emoji: '🌤️', category: ToolCategory.LIFE, gradient: ['#2980B9', '#6DD5FA'] },
+  { id: 'dailynews', name: '60 秒早报', desc: '每天读懂世界', emoji: '📰', category: ToolCategory.QUERY, gradient: ['#FF512F', '#F09819'] },
+  { id: 'iplookup', name: 'IP 定位', desc: '归属地 · 运营商', emoji: '🌐', category: ToolCategory.QUERY, gradient: ['#1A2980', '#26D0CE'] },
+  { id: 'websource', name: '网页源码', desc: '查看网页 HTML', emoji: '🌍', category: ToolCategory.DEV, gradient: ['#485563', '#29323C'] },
   // ── 开发者 ──
   { id: 'json', name: 'JSON 格式化', desc: '格式化 · 压缩 · 校验', emoji: '🧩', category: ToolCategory.DEV, gradient: ['#0F2027', '#2C5364'] },
   { id: 'regex', name: '正则测试', desc: '实时匹配验证', emoji: '🎯', category: ToolCategory.DEV, gradient: ['#1F4037', '#99F2C8'] },
