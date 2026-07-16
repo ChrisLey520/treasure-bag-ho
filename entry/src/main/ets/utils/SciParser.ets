@@ -223,12 +223,26 @@ export class SciParser {
     return r;
   }
 
-  /** 解析含变量 x 的表达式（绘图用）：把 x 替换为数值后复用 parse */
+  /** 解析含变量 x 的表达式（绘图/求根用）：把 x 替换为数值后复用 parse */
   evalWithX(expr: string, x: number, degMode: boolean): number {
     // 用括号包裹避免负数破坏语法
     const substituted = expr.replace(/x/g, `(${x < 0 ? '−' + Math.abs(x) : x.toString()})`);
     return this.parse(substituted, degMode, 0);
   }
+}
+
+/** 清理用户输入的函数表达式：容错 y= / f(x)= / X 大写等写法 */
+export function normalizeFx(input: string): string {
+  let s = input.trim();
+  // 去掉 y= / f(x)= / Y= / F(x)= 前缀
+  const eq = s.indexOf('=');
+  if (eq >= 0) {
+    const lhs = s.substring(0, eq).replace(/\s/g, '').toLowerCase();
+    if (lhs === 'y' || lhs === 'f(x)' || lhs === 'fx' || lhs === 'f') {
+      s = s.substring(eq + 1);
+    }
+  }
+  return s.replace(/X/g, 'x').trim();
 }
 
 /** 结果格式化：12 位精度修约，超范围转科学计数法 */
