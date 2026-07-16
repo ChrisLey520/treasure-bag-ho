@@ -44,6 +44,12 @@ export const TOOLS: ToolInfo[] = [
   { id: 'fakecall', name: '来电模拟', desc: '饭局解围神器', emoji: '📞', category: ToolCategory.LIFE, gradient: ['#134E5E', '#71B280'] },
   { id: 'deadpixel', name: '坏点检测', desc: '屏幕纯色检测', emoji: '🖥️', category: ToolCategory.LIFE, gradient: ['#3A1C71', '#D76D77'] },
   { id: 'deviceinfo', name: '设备信息', desc: '型号 · 系统 · 屏幕', emoji: '📱', category: ToolCategory.LIFE, gradient: ['#0F0C29', '#302B63'] },
+  { id: 'compass', name: '指南针', desc: '方向传感器', emoji: '🧭', category: ToolCategory.LIFE, gradient: ['#870000', '#190A05'] },
+  { id: 'level', name: '水平仪', desc: '气泡找平', emoji: '📏', category: ToolCategory.LIFE, gradient: ['#136A8A', '#267871'] },
+  { id: 'ruler', name: '屏幕直尺', desc: '实物测量 0-15cm', emoji: '📐', category: ToolCategory.LIFE, gradient: ['#B79891', '#94716B'] },
+  { id: 'todo', name: '待办事项', desc: '轻量任务清单', emoji: '📝', category: ToolCategory.LIFE, gradient: ['#3494E6', '#EC6EAD'] },
+  { id: 'habit', name: '习惯打卡', desc: '连续天数统计', emoji: '🌱', category: ToolCategory.LIFE, gradient: ['#56AB2F', '#A8E063'] },
+  { id: 'anniversary', name: '纪念日', desc: '倒数日 · 正数日', emoji: '💝', category: ToolCategory.LIFE, gradient: ['#EC008C', '#FC6767'] },
   // ── 开发者 ──
   { id: 'json', name: 'JSON 格式化', desc: '格式化 · 压缩 · 校验', emoji: '🧩', category: ToolCategory.DEV, gradient: ['#0F2027', '#2C5364'] },
   { id: 'regex', name: '正则测试', desc: '实时匹配验证', emoji: '🎯', category: ToolCategory.DEV, gradient: ['#1F4037', '#99F2C8'] },

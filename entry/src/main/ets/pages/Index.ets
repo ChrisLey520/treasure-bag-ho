@@ -28,6 +28,12 @@ import { EncodePage } from './tools/EncodePage';
 import { HashPage } from './tools/HashPage';
 import { UuidPage } from './tools/UuidPage';
 import { LinuxCmdPage } from './tools/LinuxCmdPage';
+import { CompassPage } from './tools/CompassPage';
+import { LevelPage } from './tools/LevelPage';
+import { RulerPage } from './tools/RulerPage';
+import { TodoPage } from './tools/TodoPage';
+import { HabitPage } from './tools/HabitPage';
+import { AnniversaryPage } from './tools/AnniversaryPage';
 
 const PREF_NAME = 'treasure_bag';
 const KEY_FAVORITES = 'favorites';
@@ -117,6 +123,12 @@ struct Index {
     else if (name === 'hash') { HashPage() }
     else if (name === 'uuid') { UuidPage() }
     else if (name === 'linuxcmd') { LinuxCmdPage() }
+    else if (name === 'compass') { CompassPage() }
+    else if (name === 'level') { LevelPage() }
+    else if (name === 'ruler') { RulerPage() }
+    else if (name === 'todo') { TodoPage() }
+    else if (name === 'habit') { HabitPage() }
+    else if (name === 'anniversary') { AnniversaryPage() }
   }
 
   build() {
