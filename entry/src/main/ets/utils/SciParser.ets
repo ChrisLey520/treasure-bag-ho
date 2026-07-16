@@ -176,6 +176,29 @@ export class SciParser {
       for (const fn of fns) {
         if (this.src.startsWith(fn, this.pos)) {
           this.pos += fn.length;
+          // log(底,真数) 双参数形式
+          if (fn === 'log') {
+            this.skipSpace();
+            if (this.peek() === '(') {
+              const save = this.pos;
+              try {
+                const args = this.parseTwoArgs('log(底,真数)');
+                if (args[0] <= 0 || args[0] === 1) {
+                  throw new Error('对数底数需 >0 且 ≠1');
+                }
+                if (args[1] <= 0) {
+                  throw new Error('真数需 >0');
+                }
+                return Math.log(args[1]) / Math.log(args[0]);
+              } catch (err) {
+                const msg = (err as Error).message;
+                if (msg.includes('底数') || msg.includes('真数')) {
+                  throw new Error(msg);
+                }
+                this.pos = save;   // 非双参形式，回退按单参 log 解析
+              }
+            }
+          }
           const arg = this.parseUnary();
           let name = fn;
           if (fn === 'arcsin') { name = 'asin'; }

@@ -15,13 +15,16 @@ interface Template {
   expr: string;
 }
 
-/** 基础键盘：( ) x π e / 数字 / 四则 / √ ^ % = ANS */
+/** 基础键盘：对齐参考 App，可上下滚动（□ 为占位符模板键） */
 const BASIC_KEYS: string[][] = [
-  ['(', ')', 'x', 'π', 'e'],
-  ['7', '8', '9', '÷', '√'],
-  ['4', '5', '6', '×', '^'],
-  ['1', '2', '3', '−', '%'],
-  ['0', '.', '=', '+', 'ANS']
+  ['log□', '□^□', '√□', '□/□', '÷'],
+  ['x', '7', '8', '9', '×'],
+  ['y', '4', '5', '6', '−'],
+  ['z', '1', '2', '3', '+'],
+  ['(', ')', '0', '.', '='],
+  ['log₂', 'log₁₀', 'ln', '°', '′″'],
+  ['<', '≤', '>', '≥', '∞'],
+  ['π', 'e', 'i', '', '']
 ];
 
 /** 函数键盘：三角/反三角/对数/组合数/角度 */
@@ -310,29 +313,66 @@ export struct SuperCalcPage {
 
   // ════════ 键盘按键 ════════
   onKey(k: string): void {
+    if (k.length === 0) {
+      return;
+    }
     if (k === 'DEG') {
       this.degMode = !this.degMode;
+      return;
+    }
+    // 模板键 → 文本形式
+    if (k === 'log□') {
+      this.insertText('log(');   // 支持 log(x) 与 log(底,真数)
+      return;
+    }
+    if (k === '□^□') {
+      this.insertText('^');
+      return;
+    }
+    if (k === '√□') {
+      this.insertText('√');
+      return;
+    }
+    if (k === '□/□') {
+      this.insertText('÷');
       return;
     }
     if (k === 'log₂') {
       this.insertText('log2');
       return;
     }
+    if (k === 'log₁₀') {
+      this.insertText('log');
+      return;
+    }
+    if (k === '′″') {
+      // 分′秒″复合键：先插 ′，紧接再按升级为 ″
+      if (this.cursor > 0 && this.expression[this.cursor - 1] === '′') {
+        this.expression = this.expression.substring(0, this.cursor - 1) + '″' + this.expression.substring(this.cursor);
+      } else {
+        this.insertText('′');
+      }
+      return;
+    }
     this.insertText(k);
   }
 
-  keyBg(k: string): ResourceColor {
-    if ((k >= '0' && k <= '9') || k === '.' || (this.panel === 2 && k.length === 1 && k >= 'a' && k <= 'z')) {
-      return $r('app.color.bg_card');
+  private isPlainKey(k: string): boolean {
+    if ((k >= '0' && k <= '9') || k === '.') {
+      return true;
     }
-    return '#2E3140';
+    if (k === 'x' || k === 'y' || k === 'z' || k === '(' || k === ')') {
+      return true;
+    }
+    return this.panel === 2 && k.length === 1 && k >= 'a' && k <= 'z';
+  }
+
+  keyBg(k: string): ResourceColor {
+    return this.isPlainKey(k) ? $r('app.color.bg_card') : '#2E3140';
   }
 
   keyFg(k: string): ResourceColor {
-    if ((k >= '0' && k <= '9') || k === '.' || (this.panel === 2 && k.length === 1 && k >= 'a' && k <= 'z')) {
-      return $r('app.color.text_primary');
-    }
-    return '#7B88FF';
+    return this.isPlainKey(k) ? $r('app.color.text_primary') : '#7B88FF';
   }
 
   keyLabel(k: string): string {
@@ -670,28 +710,33 @@ export struct SuperCalcPage {
             .height('100%')
 
             if (this.panel <= 2) {
-              Column({ space: 6 }) {
-                ForEach(this.panel === 0 ? BASIC_KEYS : (this.panel === 1 ? FUNC_KEYS : AZ_KEYS), (row: string[]) => {
-                  Row({ space: 6 }) {
-                    ForEach(row, (k: string) => {
-                      Text(this.keyLabel(k))
-                        .fontSize(k.length > 2 ? 12 : 18)
-                        .fontWeight(FontWeight.Medium)
-                        .fontColor(this.keyFg(k))
-                        .textAlign(TextAlign.Center)
-                        .layoutWeight(1)
-                        .height('100%')
-                        .borderRadius(12)
-                        .backgroundColor(this.keyBg(k))
-                        .onClick(() => this.onKey(k))
-                    }, (k: string) => k)
-                  }
-                  .width('100%')
-                  .layoutWeight(1)
-                }, (row: string[], i: number) => `p${this.panel}r${i}`)
+              // 可滚动键盘（参考 App：基础面板 8 行，可视约 5 行）
+              Scroll() {
+                Column({ space: 6 }) {
+                  ForEach(this.panel === 0 ? BASIC_KEYS : (this.panel === 1 ? FUNC_KEYS : AZ_KEYS), (row: string[]) => {
+                    Row({ space: 6 }) {
+                      ForEach(row, (k: string) => {
+                        Text(this.keyLabel(k))
+                          .fontSize(k.length > 2 ? 12 : 18)
+                          .fontWeight(FontWeight.Medium)
+                          .fontColor(this.keyFg(k))
+                          .textAlign(TextAlign.Center)
+                          .layoutWeight(1)
+                          .height(52)
+                          .borderRadius(12)
+                          .backgroundColor(k.length === 0 ? Color.Transparent : this.keyBg(k))
+                          .onClick(() => this.onKey(k))
+                      }, (k: string, j: number) => `${k}-${j}`)
+                    }
+                    .width('100%')
+                  }, (row: string[], i: number) => `p${this.panel}r${i}`)
+                }
+                .width('100%')
               }
               .layoutWeight(1)
               .height('100%')
+              .scrollBar(BarState.Off)
+              .edgeEffect(EdgeEffect.Spring)
             } else {
               // f(x) 模板：左分类名 右公式（对齐截图两列布局）
               List() {
