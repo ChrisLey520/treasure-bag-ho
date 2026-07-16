@@ -28,6 +28,7 @@ export const TOOLS: ToolInfo[] = [
   { id: 'qrgen', name: '二维码生成', desc: '文本 · 网址转码', emoji: '▦', category: ToolCategory.IMAGE, gradient: ['#141E30', '#243B55'] },
   { id: 'qrscan', name: '扫码识别', desc: '二维码 · 条形码', emoji: '📷', category: ToolCategory.IMAGE, gradient: ['#0F2027', '#2C5364'] },
   { id: 'ocr', name: 'OCR 识字', desc: '本地 AI 提取文字', emoji: '🔤', category: ToolCategory.IMAGE, gradient: ['#8E2DE2', '#4A00E0'] },
+  { id: 'ninegrid', name: '九宫格切图', desc: '朋友圈 3×3 切图', emoji: '🖼️', category: ToolCategory.IMAGE, gradient: ['#FC5C7D', '#6A82FB'] },
   // ── 查询/计算 ──
   { id: 'radix', name: '进制转换', desc: '2/8/10/16 进制互转', emoji: '🔢', category: ToolCategory.DEV, gradient: ['#667EEA', '#764BA2'] },
   { id: 'color', name: '颜色转换', desc: 'HEX / RGB / HSB', emoji: '🎨', category: ToolCategory.DEV, gradient: ['#F093FB', '#F5576C'] },
@@ -59,6 +60,8 @@ export const TOOLS: ToolInfo[] = [
   { id: 'habit', name: '习惯打卡', desc: '连续天数统计', emoji: '🌱', category: ToolCategory.LIFE, gradient: ['#56AB2F', '#A8E063'] },
   { id: 'anniversary', name: '纪念日', desc: '倒数日 · 正数日', emoji: '💝', category: ToolCategory.LIFE, gradient: ['#EC008C', '#FC6767'] },
   { id: 'weather', name: '天气查询', desc: '全球城市 7 日预报', emoji: '🌤️', category: ToolCategory.LIFE, gradient: ['#2980B9', '#6DD5FA'] },
+  { id: 'protractor', name: '角度尺', desc: '侧靠测角度', emoji: '📐', category: ToolCategory.LIFE, gradient: ['#603813', '#B29F94'] },
+  { id: 'whitenoise', name: '白噪音', desc: '助眠 · 专注', emoji: '📻', category: ToolCategory.LIFE, gradient: ['#5C258D', '#4389A2'] },
   { id: 'dailynews', name: '60 秒早报', desc: '每天读懂世界', emoji: '📰', category: ToolCategory.QUERY, gradient: ['#FF512F', '#F09819'] },
   { id: 'iplookup', name: 'IP 定位', desc: '归属地 · 运营商', emoji: '🌐', category: ToolCategory.QUERY, gradient: ['#1A2980', '#26D0CE'] },
   { id: 'websource', name: '网页源码', desc: '查看网页 HTML', emoji: '🌍', category: ToolCategory.DEV, gradient: ['#485563', '#29323C'] },
@@ -68,6 +71,7 @@ export const TOOLS: ToolInfo[] = [
   { id: 'encode', name: '编码转换', desc: 'Base64 · URL', emoji: '🔀', category: ToolCategory.DEV, gradient: ['#41295A', '#2F0743'] },
   { id: 'hash', name: '哈希计算', desc: 'MD5 · SHA 摘要', emoji: '🔐', category: ToolCategory.DEV, gradient: ['#000428', '#004E92'] },
   { id: 'uuid', name: 'UUID 生成', desc: '批量随机 UUID', emoji: '🎲', category: ToolCategory.DEV, gradient: ['#360033', '#0B8793'] },
+  { id: 'password', name: '密码生成', desc: '强随机 · 防混淆', emoji: '🔑', category: ToolCategory.DEV, gradient: ['#0F3443', '#34E89E'] },
   { id: 'linuxcmd', name: 'Linux 速查', desc: '常用命令手册', emoji: '🐧', category: ToolCategory.DEV, gradient: ['#283C86', '#45A247'] },
 ];
 

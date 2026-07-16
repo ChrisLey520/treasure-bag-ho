@@ -44,6 +44,10 @@ import { WeatherPage } from './tools/WeatherPage';
 import { DailyNewsPage } from './tools/DailyNewsPage';
 import { IpLookupPage } from './tools/IpLookupPage';
 import { WebSourcePage } from './tools/WebSourcePage';
+import { ProtractorPage } from './tools/ProtractorPage';
+import { WhiteNoisePage } from './tools/WhiteNoisePage';
+import { NineGridPage } from './tools/NineGridPage';
+import { PasswordPage } from './tools/PasswordPage';
 
 const PREF_NAME = 'treasure_bag';
 const KEY_FAVORITES = 'favorites';
@@ -150,6 +154,10 @@ struct Index {
     else if (name === 'dailynews') { DailyNewsPage() }
     else if (name === 'iplookup') { IpLookupPage() }
     else if (name === 'websource') { WebSourcePage() }
+    else if (name === 'protractor') { ProtractorPage() }
+    else if (name === 'whitenoise') { WhiteNoisePage() }
+    else if (name === 'ninegrid') { NineGridPage() }
+    else if (name === 'password') { PasswordPage() }
   }
 
   build() {

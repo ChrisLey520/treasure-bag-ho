@@ -211,6 +211,12 @@ treasure-bag/
 - 共用 utils/HttpUtil（NetworkKit http 封装，超时 + 状态码检查 + destroy）
 - [ ] 油价、垃圾分类、据意查句、翻译、彩票开奖（需继续选型 API，后补）
 
+### 补充批次 ✅（2026-07-15 完成，共 47 个工具）
+- [x] 角度尺（GRAVITY 滚转角 + 半圆量角器表盘 + 读数锁定）
+- [x] 白噪音（AudioRenderer writeData 实时生成 PCM，白/粉/布朗三种，零音频资源）
+- [x] 九宫格切图（中心正方形 + desiredRegion 分区解码 9 块，批量存相册带进度）
+- [x] 密码生成（防混淆字符集、各类字符保底出现、Fisher-Yates、强度评估）
+
 ### Phase 6：AI 增强类（需第三方付费 API，最后评估）
 - [ ] 去水印、抠图、超分、去摩尔纹…
 
