@@ -64,7 +64,7 @@ export class SciParser {
           throw new Error('除数不能为 0');
         }
         v /= d;
-      } else if (ch === '(' || ch === 'π' || ch === 'e' || this.isFuncStart(ch) || ch === '√') {
+      } else if (ch === '(' || ch === 'π' || ch === 'e' || this.isFuncStart(ch) || ch === '√' || ch === 'A' || ch === 'C') {
         // 隐式乘法
         v *= this.parseUnary();
       } else {
@@ -97,6 +97,17 @@ export class SciParser {
       } else if (ch === '%') {
         this.pos += 1;
         v /= 100;
+      } else if (ch === '°') {
+        this.pos += 1;
+        v = this.degMode ? v : v * Math.PI / 180;
+      } else if (ch === '′') {
+        this.pos += 1;
+        const deg = v / 60;
+        v = this.degMode ? deg : deg * Math.PI / 180;
+      } else if (ch === '″') {
+        this.pos += 1;
+        const deg = v / 3600;
+        v = this.degMode ? deg : deg * Math.PI / 180;
       } else {
         return v;
       }
@@ -137,20 +148,42 @@ export class SciParser {
       }
       return Math.sqrt(v);
     }
+    // ANS（上次结果，大小写均可，须在 A(n,r) 之前判断）
+    if (this.src.startsWith('ANS', this.pos) || this.src.startsWith('ans', this.pos)) {
+      this.pos += 3;
+      return this.ansValue;
+    }
+    // 排列 A(n,r) / 组合 C(n,r)
+    if (ch === 'A' || ch === 'C') {
+      const isPerm = ch === 'A';
+      this.pos += 1;
+      const args = this.parseTwoArgs(isPerm ? 'A(n,r)' : 'C(n,r)');
+      return isPerm ? SciParser.perm(args[0], args[1]) : SciParser.comb(args[0], args[1]);
+    }
     // 函数名
     if (this.isFuncStart(ch)) {
-      const fns: string[] = ['asin', 'acos', 'atan', 'sin', 'cos', 'tan', 'ln', 'log', 'abs'];
+      // 双参数函数：公倍 lcm(a,b) / 公约 gcd(a,b)
+      const twoArg: string[] = ['lcm', 'gcd'];
+      for (const fn of twoArg) {
+        if (this.src.startsWith(fn, this.pos)) {
+          this.pos += fn.length;
+          const args = this.parseTwoArgs(`${fn}(a,b)`);
+          return fn === 'lcm' ? SciParser.lcmInt(args[0], args[1]) : SciParser.gcdInt(args[0], args[1]);
+        }
+      }
+      const fns: string[] = ['arcsin', 'arccos', 'arctan', 'asin', 'acos', 'atan',
+        'log10', 'log2', 'sin', 'cos', 'tan', 'ln', 'log', 'abs'];
       for (const fn of fns) {
         if (this.src.startsWith(fn, this.pos)) {
           this.pos += fn.length;
           const arg = this.parseUnary();
-          return this.applyFunc(fn, arg);
+          let name = fn;
+          if (fn === 'arcsin') { name = 'asin'; }
+          else if (fn === 'arccos') { name = 'acos'; }
+          else if (fn === 'arctan') { name = 'atan'; }
+          else if (fn === 'log10') { name = 'log'; }
+          return this.applyFunc(name, arg);
         }
-      }
-      // ANS
-      if (this.src.startsWith('ans', this.pos) || this.src.startsWith('ANS', this.pos)) {
-        this.pos += 3;
-        return this.ansValue;
       }
       throw new Error(`未知函数 "${this.src.substring(this.pos, this.pos + 4)}"`);
     }
@@ -205,8 +238,65 @@ export class SciParser {
       if (x <= 0) { throw new Error('log 定义域 (0,+∞)'); }
       return Math.log10(x);
     }
+    if (fn === 'log2') {
+      if (x <= 0) { throw new Error('log₂ 定义域 (0,+∞)'); }
+      return Math.log2(x);
+    }
     if (fn === 'abs') { return Math.abs(x); }
     throw new Error(`未知函数 ${fn}`);
+  }
+
+  /** 解析 (a,b) 双参数 */
+  private parseTwoArgs(sig: string): number[] {
+    if (this.peek() !== '(') {
+      throw new Error(`${sig} 需要括号参数`);
+    }
+    this.pos += 1;
+    const a = this.parseExpr();
+    const sep = this.peek();
+    if (sep !== ',' && sep !== '，') {
+      throw new Error(`${sig} 参数用逗号分隔`);
+    }
+    this.pos += 1;
+    const b = this.parseExpr();
+    if (this.peek() !== ')') {
+      throw new Error('缺少右括号');
+    }
+    this.pos += 1;
+    return [a, b];
+  }
+
+  private static gcdInt(a: number, b: number): number {
+    if (Math.floor(a) !== a || Math.floor(b) !== b || a <= 0 || b <= 0) {
+      throw new Error('公约数需正整数');
+    }
+    let x = a;
+    let y = b;
+    while (y > 0) {
+      const t = x % y;
+      x = y;
+      y = t;
+    }
+    return x;
+  }
+
+  private static lcmInt(a: number, b: number): number {
+    return a / SciParser.gcdInt(a, b) * b;
+  }
+
+  private static perm(n: number, r: number): number {
+    if (Math.floor(n) !== n || Math.floor(r) !== r || n < 0 || r < 0 || r > n) {
+      throw new Error('A(n,r) 需 0≤r≤n 整数');
+    }
+    let v = 1;
+    for (let i = n - r + 1; i <= n; i++) {
+      v *= i;
+    }
+    return v;
+  }
+
+  private static comb(n: number, r: number): number {
+    return SciParser.perm(n, r) / SciParser.factorial(r);
   }
 
   private static factorial(n: number): number {

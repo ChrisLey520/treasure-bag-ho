@@ -15,35 +15,50 @@ interface Template {
   expr: string;
 }
 
-/** 基础键盘（对标超级计算器基础面板） */
+/** 基础键盘：( ) x π e / 数字 / 四则 / √ ^ % = ANS */
 const BASIC_KEYS: string[][] = [
-  ['log', 'ln', '√', '^', '÷'],
-  ['x', '7', '8', '9', '×'],
-  ['π', '4', '5', '6', '−'],
-  ['e', '1', '2', '3', '+'],
-  ['=', '0', '.', '%', 'ANS']
+  ['(', ')', 'x', 'π', 'e'],
+  ['7', '8', '9', '÷', '√'],
+  ['4', '5', '6', '×', '^'],
+  ['1', '2', '3', '−', '%'],
+  ['0', '.', '=', '+', 'ANS']
 ];
 
-/** 函数键盘 */
+/** 函数键盘：三角/反三角/对数/组合数/角度 */
 const FUNC_KEYS: string[][] = [
-  ['sin', 'cos', 'tan', 'π', 'e'],
-  ['asin', 'acos', 'atan', '!', 'abs'],
-  ['ln', 'log', '√', '^', '%'],
-  ['(', ')', 'x', 'ANS', 'DEG']
+  ['sin', 'cos', 'tan', 'ln', 'log'],
+  ['arcsin', 'arccos', 'arctan', 'log₂', 'abs'],
+  ['!', '°', '′', '″', 'DEG'],
+  ['A(', 'C(', 'lcm(', 'gcd(', ','],
+  ['√', '^', '(', ')', 'π']
 ];
 
-/** f(x) 模板：点击整体替换输入 */
+/** 字母键盘（未知数用 x，其余字母预留） */
+const AZ_KEYS: string[][] = [
+  ['a', 'b', 'c', 'd', 'e'],
+  ['f', 'g', 'h', 'i', 'j'],
+  ['k', 'l', 'm', 'n', 'o'],
+  ['p', 'q', 'r', 's', 't'],
+  ['u', 'v', 'w', 'x', 'y'],
+  ['z', '(', ')', '=', ',']
+];
+
+/** f(x) 模板：分类 + 公式，两列展示，点击整体填入 */
 const TEMPLATES: Template[] = [
-  { label: '一元一次方程', expr: '2x+3=7' },
-  { label: '一元二次方程', expr: 'x^2−3x+2=0' },
+  { label: '指数函数', expr: '2^x=32' },
+  { label: '对数函数', expr: 'log2x=3' },
+  { label: '一元一次', expr: '2x+3=7' },
+  { label: '一元二次', expr: 'x^2−3x+2=0' },
   { label: '黄金分割', expr: 'x^2−x−1=0' },
   { label: '三角方程', expr: 'sin x=0.5' },
   { label: '三次方程', expr: 'x^3−3x+1=0' },
   { label: '复根示例', expr: 'x^2+1=0' },
+  { label: '排列组合', expr: 'C(10,3)+A(5,2)' },
+  { label: '最大公约', expr: 'gcd(24,36)' },
+  { label: '最小公倍', expr: 'lcm(4,6)' },
+  { label: '角度换算', expr: '30°+45′30″' },
   { label: '勾股定理', expr: '√(3^2+4^2)' },
-  { label: '复利 10 年', expr: '(1+0.03)^10' },
-  { label: '阶乘', expr: '10!' },
-  { label: '对数', expr: 'log 1000' }
+  { label: '复利十年', expr: '(1+0.03)^10' }
 ];
 
 const MODES: string[] = ['计算', '绘图', '统计'];
@@ -72,7 +87,8 @@ export struct SuperCalcPage {
   private settings: RenderingContextSettings = new RenderingContextSettings(true);
   private plotCtx: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
   private readonly PLOT_H: number = 240;
-  private readonly FNS: string[] = ['asin', 'acos', 'atan', 'sin', 'cos', 'tan', 'abs', 'ln', 'log', 'ANS'];
+  private readonly FNS: string[] = ['arcsin', 'arccos', 'arctan', 'asin', 'acos', 'atan',
+    'log2', 'lcm(', 'gcd(', 'sin', 'cos', 'tan', 'abs', 'ln', 'log', 'ANS'];
 
   // ════════ 光标编辑 ════════
   insertText(s: string): void {
@@ -298,18 +314,22 @@ export struct SuperCalcPage {
       this.degMode = !this.degMode;
       return;
     }
+    if (k === 'log₂') {
+      this.insertText('log2');
+      return;
+    }
     this.insertText(k);
   }
 
   keyBg(k: string): ResourceColor {
-    if ((k >= '0' && k <= '9') || k === '.') {
+    if ((k >= '0' && k <= '9') || k === '.' || (this.panel === 2 && k.length === 1 && k >= 'a' && k <= 'z')) {
       return $r('app.color.bg_card');
     }
     return '#2E3140';
   }
 
   keyFg(k: string): ResourceColor {
-    if ((k >= '0' && k <= '9') || k === '.') {
+    if ((k >= '0' && k <= '9') || k === '.' || (this.panel === 2 && k.length === 1 && k >= 'a' && k <= 'z')) {
       return $r('app.color.text_primary');
     }
     return '#7B88FF';
@@ -487,18 +507,18 @@ export struct SuperCalcPage {
     ];
   }
 
-  /** 侧边栏圆形按钮 */
+  /** 侧边栏圆形按钮（f(x) 按截图用橙色高亮） */
   @Builder
   sideButton(label: string, idx: number) {
     Text(label)
-      .fontSize(label.length > 3 ? 9 : 13)
+      .fontSize(idx === 0 ? 10 : 13)
       .fontWeight(FontWeight.Bold)
-      .fontColor(this.panel === idx ? Color.White : $r('app.color.text_secondary'))
+      .fontColor(this.panel === idx ? Color.White : (idx === 3 ? '#FF9F43' : $r('app.color.text_secondary')))
       .textAlign(TextAlign.Center)
       .width(42)
       .height(42)
       .borderRadius(21)
-      .backgroundColor(this.panel === idx ? $r('app.color.accent') : $r('app.color.bg_card'))
+      .backgroundColor(this.panel === idx ? (idx === 3 ? '#FF9F43' : $r('app.color.accent')) : $r('app.color.bg_card'))
       .onClick(() => {
         this.panel = idx;
       })
@@ -593,16 +613,23 @@ export struct SuperCalcPage {
           .backgroundColor($r('app.color.bg_card'))
           .alignItems(HorizontalAlign.End)
 
-          // ══ 编辑工具条：清空 ◀ ▶ ⌫ ＝ ══
+          // ══ 编辑工具条（对齐截图：清空 回车执行 ◀ ▶ 退格）══
           Row({ space: 8 }) {
-            Text('C')
-              .fontSize(17).fontWeight(FontWeight.Bold)
-              .fontColor('#F5576C')
+            Text('🗑')
+              .fontSize(16)
               .textAlign(TextAlign.Center)
               .layoutWeight(1).height(42)
               .borderRadius(12)
               .backgroundColor('#33F5576C')
               .onClick(() => this.clearAll())
+            Text('↵')
+              .fontSize(20).fontWeight(FontWeight.Bold)
+              .fontColor(Color.White)
+              .textAlign(TextAlign.Center)
+              .layoutWeight(2).height(42)
+              .borderRadius(12)
+              .backgroundColor($r('app.color.accent'))
+              .onClick(() => this.runCalc())
             Text('◀')
               .fontSize(16)
               .fontColor($r('app.color.text_primary'))
@@ -627,35 +654,28 @@ export struct SuperCalcPage {
               .borderRadius(12)
               .backgroundColor('#2E3140')
               .onClick(() => this.backspace())
-            Text('＝')
-              .fontSize(18).fontWeight(FontWeight.Bold)
-              .fontColor(Color.White)
-              .textAlign(TextAlign.Center)
-              .layoutWeight(2).height(42)
-              .borderRadius(12)
-              .backgroundColor($r('app.color.accent'))
-              .onClick(() => this.runCalc())
           }
           .width('100%')
 
-          // ══ 侧边栏 + 键盘面板 ══
+          // ══ 侧边栏（+−×÷ / f / a-z / f(x)）+ 面板 ══
           Row({ space: 8 }) {
             Column({ space: 10 }) {
-              this.sideButton('+−×÷', 0)
+              this.sideButton('+−\n×÷', 0)
               this.sideButton('f', 1)
-              this.sideButton('f(x)', 2)
+              this.sideButton('a-z', 2)
+              this.sideButton('f(x)', 3)
               Blank()
             }
             .width(50)
             .height('100%')
 
-            if (this.panel === 0 || this.panel === 1) {
+            if (this.panel <= 2) {
               Column({ space: 6 }) {
-                ForEach(this.panel === 0 ? BASIC_KEYS : FUNC_KEYS, (row: string[]) => {
+                ForEach(this.panel === 0 ? BASIC_KEYS : (this.panel === 1 ? FUNC_KEYS : AZ_KEYS), (row: string[]) => {
                   Row({ space: 6 }) {
                     ForEach(row, (k: string) => {
                       Text(this.keyLabel(k))
-                        .fontSize(k.length > 2 ? 13 : 18)
+                        .fontSize(k.length > 2 ? 12 : 18)
                         .fontWeight(FontWeight.Medium)
                         .fontColor(this.keyFg(k))
                         .textAlign(TextAlign.Center)
@@ -673,24 +693,28 @@ export struct SuperCalcPage {
               .layoutWeight(1)
               .height('100%')
             } else {
-              // f(x) 模板列表
-              List({ space: 6 }) {
+              // f(x) 模板：左分类名 右公式（对齐截图两列布局）
+              List() {
                 ForEach(TEMPLATES, (t: Template) => {
                   ListItem() {
                     Row() {
                       Text(t.label)
-                        .fontSize(13)
+                        .fontSize(14)
                         .fontColor($r('app.color.text_secondary'))
-                      Blank()
+                        .width('38%')
+                        .textAlign(TextAlign.Center)
+                      Divider()
+                        .vertical(true)
+                        .height(24)
                       Text(t.expr)
-                        .fontSize(15)
+                        .fontSize(16)
                         .fontWeight(FontWeight.Medium)
                         .fontColor($r('app.color.text_primary'))
+                        .layoutWeight(1)
+                        .textAlign(TextAlign.Center)
                     }
                     .width('100%')
-                    .padding({ top: 12, bottom: 12, left: 14, right: 14 })
-                    .borderRadius(12)
-                    .backgroundColor($r('app.color.bg_card'))
+                    .padding({ top: 14, bottom: 14 })
                     .onClick(() => {
                       this.expression = t.expr;
                       this.cursor = t.expr.length;
@@ -700,8 +724,11 @@ export struct SuperCalcPage {
                   }
                 }, (t: Template) => t.label)
               }
+              .divider({ strokeWidth: 0.5, color: '#33888888' })
               .layoutWeight(1)
               .height('100%')
+              .borderRadius(12)
+              .backgroundColor($r('app.color.bg_card'))
               .scrollBar(BarState.Off)
             }
           }
