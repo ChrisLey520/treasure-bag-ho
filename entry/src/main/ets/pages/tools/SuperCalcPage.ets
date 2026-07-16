@@ -1,4 +1,4 @@
-import { SciParser, fmtResult, normalizeFx } from '../../utils/SciParser';
+import { SciParser, fmtResult, normalizeFx, equationToFx, toFraction } from '../../utils/SciParser';
 
 interface HistoryItem {
   expr: string;
@@ -30,19 +30,17 @@ const SCI_KEYS_2ND: string[][] = [
   ['0', '.', 'x', 'C', '=']
 ];
 
-const MODES: string[] = ['计算', '绘图', '方程', '分数', '统计'];
+/** 方程专用键盘：所有符号按钮化，无需手动输入 */
+const EQ_KEYS: string[][] = [
+  ['x', '=', '(', ')', '⌫'],
+  ['sin', 'cos', 'tan', '√', '÷'],
+  ['7', '8', '9', '^', '×'],
+  ['4', '5', '6', 'π', '−'],
+  ['1', '2', '3', 'ln', '+'],
+  ['0', '.', 'log', 'C', '求解']
+];
 
-/** 最大公约数 */
-function gcd(a: number, b: number): number {
-  a = Math.abs(a);
-  b = Math.abs(b);
-  while (b > 0) {
-    const t = a % b;
-    a = b;
-    b = t;
-  }
-  return a;
-}
+const MODES: string[] = ['计算', '绘图', '方程', '统计'];
 
 @Component
 export struct SuperCalcPage {
@@ -50,6 +48,7 @@ export struct SuperCalcPage {
   // ── 科学计算 ──
   @State expression: string = '';
   @State result: string = '';
+  @State fracForm: string = '';   // 结果的分数形式（若存在）
   @State degMode: boolean = true;
   @State second: boolean = false;
   @State history: HistoryItem[] = [];
@@ -59,21 +58,8 @@ export struct SuperCalcPage {
   @State plotError: string = '';
   @State plotW: number = 320;
   // ── 方程 ──
-  @State eqA: string = '1';
-  @State eqB: string = '-3';
-  @State eqC: string = '2';
+  @State eqInput: string = 'x^2−x−1=0';
   @State eqResult: string = '';
-  @State fxExpr: string = 'x^2−2';
-  @State fxRoots: string = '';
-  // ── 分数 ──
-  @State fracN1: string = '1';
-  @State fracD1: string = '2';
-  @State fracN2: string = '1';
-  @State fracD2: string = '3';
-  @State fracOp: number = 0;   // 0+ 1− 2× 3÷
-  @State fracResult: string = '';
-  @State decInput: string = '0.375';
-  @State decResult: string = '';
   // ── 统计 ──
   @State statInput: string = '';
   @State statRows: ResultRow[] = [];
@@ -100,6 +86,7 @@ export struct SuperCalcPage {
     if (k === 'C') {
       this.expression = '';
       this.result = '';
+      this.fracForm = '';
       return;
     }
     if (k === '⌫') {
@@ -121,20 +108,25 @@ export struct SuperCalcPage {
       try {
         const v = this.parser.parse(this.expression, this.degMode, this.ans);
         this.result = fmtResult(v);
+        // 分数形式：仅当能表示为"好看"的分数（分母 ≤ 9999）时展示
+        const frac = toFraction(v, 9999);
+        this.fracForm = frac !== undefined ? frac : '';
         this.ans = v;
         this.history = [{ expr: this.expression, result: this.result } as HistoryItem,
           ...this.history].slice(0, 20);
       } catch (err) {
         this.result = (err as Error).message;
+        this.fracForm = '';
       }
       return;
     }
     this.expression += k;
     this.result = '';
+    this.fracForm = '';
   }
 
   keyBg(k: string): ResourceColor {
-    if (k === '=') {
+    if (k === '=' || k === '求解') {
       return $r('app.color.accent');
     }
     if (k === 'C') {
@@ -150,7 +142,7 @@ export struct SuperCalcPage {
   }
 
   keyFg(k: string): ResourceColor {
-    if (k === '=' || (k === '2nd' && this.second)) {
+    if (k === '=' || k === '求解' || (k === '2nd' && this.second)) {
       return Color.White;
     }
     if (k === 'C') {
@@ -181,7 +173,6 @@ export struct SuperCalcPage {
     const X_MAX = 10;
     const expr = normalizeFx(this.plotExpr);
 
-    // 采样（失败也继续，保证网格坐标轴总是画出来）
     const N = 300;
     const xs: number[] = [];
     const ys: number[] = [];
@@ -207,7 +198,6 @@ export struct SuperCalcPage {
       }
     }
     if (valid === 0) {
-      // 无有效点：默认量程，仍画空白坐标系
       yMin = -5;
       yMax = 5;
       if (expr.length > 0) {
@@ -244,7 +234,7 @@ export struct SuperCalcPage {
       c.lineTo(W, py(gy));
       c.stroke();
     }
-    // 坐标轴：x 轴——0 在量程内画 y=0，否则贴近的边画基线（虚线示意）
+    // x 轴
     c.strokeStyle = '#8A8F9C';
     c.lineWidth = 1.2;
     if (yMin <= 0 && yMax >= 0) {
@@ -261,7 +251,7 @@ export struct SuperCalcPage {
       c.stroke();
       c.setLineDash([]);
     }
-    // y 轴（x=0 恒在 [-10,10] 内）
+    // y 轴
     c.beginPath();
     c.moveTo(px(0), 0);
     c.lineTo(px(0), H);
@@ -287,7 +277,6 @@ export struct SuperCalcPage {
       }
       c.stroke();
     }
-    // 量程标注
     c.fillStyle = '#8A8F9C';
     c.font = '10vp sans-serif';
     c.fillText(`y∈[${fmtResult(parseFloat(yMin.toFixed(2)))}, ${fmtResult(parseFloat(yMax.toFixed(2)))}]`, 6, 14);
@@ -295,44 +284,115 @@ export struct SuperCalcPage {
   }
 
   // ════════ 方程求解 ════════
-  solveQuadratic(): void {
-    const a = parseFloat(this.eqA);
-    const b = parseFloat(this.eqB);
-    const c = parseFloat(this.eqC);
-    if (isNaN(a) || isNaN(b) || isNaN(c)) {
-      this.eqResult = '请输入有效系数';
+  onEqKey(k: string): void {
+    if (k === 'C') {
+      this.eqInput = '';
+      this.eqResult = '';
       return;
     }
-    if (a === 0) {
-      if (b === 0) {
-        this.eqResult = c === 0 ? '恒等式，x 为任意数' : '无解';
+    if (k === '⌫') {
+      const fns: string[] = ['sin', 'cos', 'tan', 'ln', 'log'];
+      let cut = 1;
+      for (const fn of fns) {
+        if (this.eqInput.endsWith(fn)) {
+          cut = fn.length;
+          break;
+        }
+      }
+      this.eqInput = this.eqInput.slice(0, -cut);
+      return;
+    }
+    if (k === '求解') {
+      this.solveEquation();
+      return;
+    }
+    this.eqInput += k;
+    this.eqResult = '';
+  }
+
+  /**
+   * 通用方程求解：
+   * 1) 移项为 f(x) = 0
+   * 2) 多项式检测（差分法）：一次/二次给精确解（含复根）
+   * 3) 其余数值求根：[-10,10] 扫描 + 二分
+   */
+  solveEquation(): void {
+    if (this.eqInput.trim().length === 0) {
+      this.eqResult = '请输入方程';
+      return;
+    }
+    const fx = equationToFx(this.eqInput);
+    const f = (x: number): number => this.parser.evalWithX(fx, x, this.degMode);
+
+    // 试采样，确认表达式可求值
+    let ok = 0;
+    const probe: number[] = [0, 1, -1, 2, -2, 3, 0.5];
+    const pv: number[] = [];
+    for (const x of probe) {
+      try {
+        const y = f(x);
+        pv.push(y);
+        if (!isNaN(y) && isFinite(y)) {
+          ok += 1;
+        }
+      } catch (err) {
+        pv.push(NaN);
+      }
+    }
+    if (ok === 0) {
+      this.eqResult = '方程无法求值，请检查输入（未知数用 x）';
+      return;
+    }
+
+    // 多项式检测：f(0),f(1),f(-1),f(2),f(3) 全部有效时试拟合二次
+    if (!isNaN(pv[0]) && !isNaN(pv[1]) && !isNaN(pv[2]) && !isNaN(pv[3]) && !isNaN(pv[5])) {
+      const c = pv[0];                       // f(0)
+      const a = (pv[1] + pv[2]) / 2 - c;     // (f(1)+f(-1))/2 − f(0)
+      const b = (pv[1] - pv[2]) / 2;         // (f(1)−f(-1))/2
+      // 验证拟合（x=2、x=3 两点）
+      const fit2 = a * 4 + b * 2 + c;
+      const fit3 = a * 9 + b * 3 + c;
+      const scale = Math.max(1, Math.abs(pv[3]), Math.abs(pv[5]));
+      if (Math.abs(fit2 - pv[3]) < 1e-9 * scale && Math.abs(fit3 - pv[5]) < 1e-9 * scale) {
+        this.solvePolynomial(a, b, c);
         return;
       }
-      this.eqResult = `一次方程：x = ${fmtResult(-c / b)}`;
+    }
+    // 非多项式：数值求根
+    this.solveNumeric(f);
+  }
+
+  /** 一次/二次精确解（含复根、分数形式） */
+  solvePolynomial(a: number, b: number, c: number): void {
+    const withFrac = (v: number): string => {
+      const fr = toFraction(v, 9999);
+      return fr !== undefined ? `${fmtResult(v)}（${fr}）` : fmtResult(v);
+    };
+    if (Math.abs(a) < 1e-12) {
+      if (Math.abs(b) < 1e-12) {
+        this.eqResult = Math.abs(c) < 1e-12 ? '恒等式：x 为任意数' : '矛盾式：无解';
+        return;
+      }
+      this.eqResult = `一次方程 ${fmtResult(b)}x + ${fmtResult(c)} = 0\n\nx = ${withFrac(-c / b)}`;
       return;
     }
     const d = b * b - 4 * a * c;
-    if (d > 0) {
+    const head = `二次方程 a=${fmtResult(a)}, b=${fmtResult(b)}, c=${fmtResult(c)}\nΔ = ${fmtResult(d)}`;
+    if (d > 1e-12) {
       const x1 = (-b + Math.sqrt(d)) / (2 * a);
       const x2 = (-b - Math.sqrt(d)) / (2 * a);
-      this.eqResult = `Δ = ${fmtResult(d)} > 0，两个实根\nx₁ = ${fmtResult(x1)}\nx₂ = ${fmtResult(x2)}`;
-    } else if (d === 0) {
-      this.eqResult = `Δ = 0，重根\nx = ${fmtResult(-b / (2 * a))}`;
+      this.eqResult = `${head} > 0，两个实根\n\nx₁ = ${withFrac(x1)}\nx₂ = ${withFrac(x2)}`;
+    } else if (Math.abs(d) <= 1e-12) {
+      this.eqResult = `${head} = 0，重根\n\nx = ${withFrac(-b / (2 * a))}`;
     } else {
       const re = fmtResult(-b / (2 * a));
-      const im = fmtResult(Math.sqrt(-d) / (2 * a));
-      this.eqResult = `Δ = ${fmtResult(d)} < 0，共轭复根\nx₁ = ${re} + ${im}i\nx₂ = ${re} − ${im}i`;
+      const im = fmtResult(Math.sqrt(-d) / (2 * Math.abs(a)));
+      this.eqResult = `${head} < 0，共轭复根\n\nx₁ = ${re} + ${im}i\nx₂ = ${re} − ${im}i`;
     }
   }
 
-  /** f(x)=0 数值求根：[-10,10] 均匀扫描变号区间 + 二分法 */
-  solveFx(): void {
-    const expr = normalizeFx(this.fxExpr);
-    if (expr.length === 0) {
-      this.fxRoots = '请输入表达式';
-      return;
-    }
-    const f = (x: number): number => this.parser.evalWithX(expr, x, this.degMode);
+  /** 数值求根：[-10,10] 扫描变号区间 + 二分 */
+  solveNumeric(f: (x: number) => number): void {
     const roots: number[] = [];
     const N = 400;
     const X_MIN = -10;
@@ -353,10 +413,9 @@ export struct SuperCalcPage {
         y = NaN;
       }
       if (!isNaN(prevY) && !isNaN(y) && isFinite(prevY) && isFinite(y)) {
-        if (prevY === 0) {
+        if (Math.abs(prevY) < 1e-12) {
           roots.push(prevX);
         } else if (prevY * y < 0) {
-          // 二分求根
           let lo = prevX;
           let hi = x;
           let flo = prevY;
@@ -385,7 +444,6 @@ export struct SuperCalcPage {
       prevX = x;
       prevY = y;
     }
-    // 去重（相邻根间距 < 1e-6 视为同根）
     const uniq: number[] = [];
     for (const r of roots) {
       if (uniq.length === 0 || Math.abs(r - uniq[uniq.length - 1]) > 1e-6) {
@@ -393,103 +451,16 @@ export struct SuperCalcPage {
       }
     }
     if (uniq.length === 0) {
-      this.fxRoots = '在 [-10, 10] 内未找到实根（不排除区间外或偶重根）';
+      this.eqResult = '数值求解：在 [-10, 10] 内未找到实根\n（不排除区间外的根或偶重根）';
     } else {
       const parts: string[] = [];
       for (let i = 0; i < uniq.length; i++) {
         const clean = Math.abs(uniq[i]) < 1e-10 ? 0 : uniq[i];
-        parts.push(`x${i + 1} = ${fmtResult(parseFloat(clean.toPrecision(8)))}`);
+        const v = parseFloat(clean.toPrecision(8));
+        const fr = toFraction(v, 9999);
+        parts.push(`x${i + 1} = ${fmtResult(v)}${fr !== undefined ? `（${fr}）` : ''}`);
       }
-      this.fxRoots = `找到 ${uniq.length} 个根：\n${parts.join('\n')}`;
-    }
-  }
-
-  // ════════ 分数计算 ════════
-  calcFraction(): void {
-    const n1 = parseInt(this.fracN1);
-    const d1 = parseInt(this.fracD1);
-    const n2 = parseInt(this.fracN2);
-    const d2 = parseInt(this.fracD2);
-    if (isNaN(n1) || isNaN(d1) || isNaN(n2) || isNaN(d2) || d1 === 0 || d2 === 0) {
-      this.fracResult = '请输入有效分数（分母非 0）';
-      return;
-    }
-    let rn = 0;
-    let rd = 0;
-    if (this.fracOp === 0) {
-      rn = n1 * d2 + n2 * d1;
-      rd = d1 * d2;
-    } else if (this.fracOp === 1) {
-      rn = n1 * d2 - n2 * d1;
-      rd = d1 * d2;
-    } else if (this.fracOp === 2) {
-      rn = n1 * n2;
-      rd = d1 * d2;
-    } else {
-      if (n2 === 0) {
-        this.fracResult = '除数不能为 0';
-        return;
-      }
-      rn = n1 * d2;
-      rd = d1 * n2;
-    }
-    if (rd < 0) {
-      rn = -rn;
-      rd = -rd;
-    }
-    const g = gcd(rn, rd);
-    const sn = g > 0 ? rn / g : rn;
-    const sd = g > 0 ? rd / g : rd;
-    if (sd === 1) {
-      this.fracResult = `= ${sn}`;
-    } else {
-      const dec = fmtResult(sn / sd);
-      // 带分数
-      let mixed = '';
-      if (Math.abs(sn) > sd) {
-        const whole = sn > 0 ? Math.floor(sn / sd) : -Math.floor(-sn / sd);
-        const rem = Math.abs(sn) % sd;
-        mixed = `（带分数 ${whole} ${rem}/${sd}）`;
-      }
-      this.fracResult = `= ${sn}/${sd} ${mixed}\n≈ ${dec}`;
-    }
-  }
-
-  /** 小数 → 分数：连分数展开法 */
-  decToFraction(): void {
-    const v = parseFloat(this.decInput);
-    if (isNaN(v)) {
-      this.decResult = '请输入有效小数';
-      return;
-    }
-    let x = Math.abs(v);
-    let n0 = 0;
-    let d0 = 1;
-    let n1 = 1;
-    let d1 = 0;
-    let val = x;
-    for (let i = 0; i < 40; i++) {
-      const a = Math.floor(val);
-      const n2 = a * n1 + n0;
-      const d2 = a * d1 + d0;
-      if (d2 > 1e9) {
-        break;
-      }
-      n0 = n1;
-      d0 = d1;
-      n1 = n2;
-      d1 = d2;
-      const frac = val - a;
-      if (frac < 1e-12 || Math.abs(n1 / d1 - x) < 1e-12) {
-        break;
-      }
-      val = 1 / frac;
-    }
-    const sign = v < 0 ? '−' : '';
-    if (d1 === 1) {
-      this.decResult = `= ${sign}${n1}`;
-    } else {
-      this.decResult = `= ${sign}${n1}/${d1}`;
+      this.eqResult = `数值求解，找到 ${uniq.length} 个根：\n\n${parts.join('\n')}`;
     }
   }
 
@@ -541,54 +512,52 @@ export struct SuperCalcPage {
   }
 
   @Builder
-  inputField(placeholder: string, value: string, onChangeValue: (v: string) => void) {
-    TextInput({ placeholder: placeholder, text: value })
-      .height(44)
-      .borderRadius(12)
-      .backgroundColor($r('app.color.bg_card'))
-      .fontColor($r('app.color.text_primary'))
-      .onChange((v: string) => onChangeValue(v))
-  }
-
-  @Builder
-  resultCard(text: string) {
-    Text(text)
-      .fontSize(16)
-      .fontWeight(FontWeight.Medium)
-      .fontColor($r('app.color.text_primary'))
-      .lineHeight(26)
-      .width('100%')
-      .padding(16)
-      .borderRadius(14)
-      .backgroundColor($r('app.color.bg_card'))
+  keyboard(layout: string[][], onPress: (k: string) => void) {
+    Column({ space: 6 }) {
+      ForEach(layout, (row: string[]) => {
+        Row({ space: 6 }) {
+          ForEach(row, (k: string) => {
+            Text(this.keyLabel(k))
+              .fontSize(k.length > 2 ? 14 : 18)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.keyFg(k))
+              .textAlign(TextAlign.Center)
+              .layoutWeight(1)
+              .height('100%')
+              .borderRadius(12)
+              .backgroundColor(this.keyBg(k))
+              .onClick(() => onPress(k))
+          }, (k: string) => k)
+        }
+        .width('100%')
+        .layoutWeight(1)
+      }, (row: string[], i: number) => `r${i}${this.second}`)
+    }
+    .layoutWeight(1)
+    .width('100%')
   }
 
   build() {
     NavDestination() {
       Column({ space: 10 }) {
         // 模式切换
-        Scroll() {
-          Row({ space: 8 }) {
-            ForEach(MODES, (label: string, i: number) => {
-              Text(label)
-                .fontSize(14)
-                .fontWeight(this.mode === i ? FontWeight.Bold : FontWeight.Normal)
-                .fontColor(this.mode === i ? Color.White : $r('app.color.text_secondary'))
-                .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-                .borderRadius(18)
-                .backgroundColor(this.mode === i ? $r('app.color.accent') : $r('app.color.bg_card'))
-                .onClick(() => {
-                  this.mode = i;
-                  if (i === 1) {
-                    setTimeout(() => this.drawPlot(), 50);
-                  }
-                })
-            }, (label: string) => label)
-          }
+        Row({ space: 8 }) {
+          ForEach(MODES, (label: string, i: number) => {
+            Text(label)
+              .fontSize(14)
+              .fontWeight(this.mode === i ? FontWeight.Bold : FontWeight.Normal)
+              .fontColor(this.mode === i ? Color.White : $r('app.color.text_secondary'))
+              .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+              .borderRadius(18)
+              .backgroundColor(this.mode === i ? $r('app.color.accent') : $r('app.color.bg_card'))
+              .onClick(() => {
+                this.mode = i;
+                if (i === 1) {
+                  setTimeout(() => this.drawPlot(), 50);
+                }
+              })
+          }, (label: string) => label)
         }
-        .scrollable(ScrollDirection.Horizontal)
-        .scrollBar(BarState.Off)
-        .width('100%')
 
         if (this.mode === 0) {
           // ── 科学计算 ──
@@ -606,6 +575,7 @@ export struct SuperCalcPage {
                     .onClick(() => {
                       this.expression = h.result;
                       this.result = '';
+                      this.fracForm = '';
                     })
                 }, (h: HistoryItem, i: number) => `${i}-${h.expr}`)
               }
@@ -622,8 +592,8 @@ export struct SuperCalcPage {
               .textAlign(TextAlign.End)
               .width('100%')
             if (this.result.length > 0) {
-              Text(`= ${this.result}`)
-                .fontSize(30)
+              Text(`= ${this.result}${this.fracForm.length > 0 ? `  =  ${this.fracForm}` : ''}`)
+                .fontSize(this.fracForm.length > 0 ? 24 : 30)
                 .fontWeight(FontWeight.Bold)
                 .fontColor($r('app.color.accent'))
                 .maxLines(1)
@@ -639,28 +609,7 @@ export struct SuperCalcPage {
           .backgroundColor($r('app.color.bg_card'))
           .alignItems(HorizontalAlign.End)
 
-          Column({ space: 6 }) {
-            ForEach(this.keys(), (row: string[]) => {
-              Row({ space: 6 }) {
-                ForEach(row, (k: string) => {
-                  Text(this.keyLabel(k))
-                    .fontSize(k.length > 2 ? 14 : 18)
-                    .fontWeight(FontWeight.Medium)
-                    .fontColor(this.keyFg(k))
-                    .textAlign(TextAlign.Center)
-                    .layoutWeight(1)
-                    .height('100%')
-                    .borderRadius(12)
-                    .backgroundColor(this.keyBg(k))
-                    .onClick(() => this.onKey(k))
-                }, (k: string) => k)
-              }
-              .width('100%')
-              .layoutWeight(1)
-            }, (row: string[], i: number) => `r${i}${this.second}`)
-          }
-          .layoutWeight(1)
-          .width('100%')
+          this.keyboard(this.keys(), (k) => this.onKey(k))
         } else if (this.mode === 1) {
           // ── 函数绘图 ──
           Scroll() {
@@ -736,137 +685,45 @@ export struct SuperCalcPage {
           .layoutWeight(1)
           .scrollBar(BarState.Off)
         } else if (this.mode === 2) {
-          // ── 方程求解 ──
-          Scroll() {
-            Column({ space: 14 }) {
-              Text('一元二次方程  ax² + bx + c = 0')
-                .fontSize(14)
-                .fontWeight(FontWeight.Bold)
-                .fontColor($r('app.color.text_primary'))
-                .alignSelf(ItemAlign.Start)
-              Row({ space: 8 }) {
-                Column({ space: 4 }) {
-                  Text('a').fontSize(12).fontColor($r('app.color.text_secondary'))
-                  this.inputField('a', this.eqA, (v) => { this.eqA = v; })
-                }.layoutWeight(1)
-                Column({ space: 4 }) {
-                  Text('b').fontSize(12).fontColor($r('app.color.text_secondary'))
-                  this.inputField('b', this.eqB, (v) => { this.eqB = v; })
-                }.layoutWeight(1)
-                Column({ space: 4 }) {
-                  Text('c').fontSize(12).fontColor($r('app.color.text_secondary'))
-                  this.inputField('c', this.eqC, (v) => { this.eqC = v; })
-                }.layoutWeight(1)
-              }
+          // ── 方程求解：显示区 + 结果 + 专用键盘 ──
+          Column({ space: 4 }) {
+            Text(this.eqInput.length > 0 ? this.eqInput : '输入方程，如 x^2−x−1=0')
+              .fontSize(this.eqInput.length > 18 ? 18 : 24)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.eqInput.length > 0 ? $r('app.color.text_primary') : $r('app.color.text_secondary'))
+              .maxLines(2)
+              .textAlign(TextAlign.End)
               .width('100%')
-              Button('求解（含复根）')
-                .width('100%').height(46)
-                .fontSize(15).fontWeight(FontWeight.Bold)
-                .backgroundColor($r('app.color.accent'))
-                .onClick(() => this.solveQuadratic())
-              if (this.eqResult.length > 0) {
-                this.resultCard(this.eqResult)
-              }
+          }
+          .width('100%')
+          .padding(14)
+          .borderRadius(16)
+          .backgroundColor($r('app.color.bg_card'))
+          .alignItems(HorizontalAlign.End)
 
-              Divider().margin({ top: 6, bottom: 6 })
-
-              Text('任意方程  f(x) = 0（数值求根）')
-                .fontSize(14)
-                .fontWeight(FontWeight.Bold)
+          if (this.eqResult.length > 0) {
+            Scroll() {
+              Text(this.eqResult)
+                .fontSize(15)
+                .fontWeight(FontWeight.Medium)
                 .fontColor($r('app.color.text_primary'))
-                .alignSelf(ItemAlign.Start)
-              this.inputField('如 x^2−2、sin x − 0.5、x^3−3x+1', this.fxExpr, (v) => { this.fxExpr = v; })
-              Button('在 [-10, 10] 内求根')
-                .width('100%').height(46)
-                .fontSize(15).fontWeight(FontWeight.Bold)
-                .backgroundColor($r('app.color.accent'))
-                .onClick(() => this.solveFx())
-              if (this.fxRoots.length > 0) {
-                this.resultCard(this.fxRoots)
-              }
+                .lineHeight(24)
+                .width('100%')
             }
             .width('100%')
-            .padding({ bottom: 20 })
-          }
-          .layoutWeight(1)
-          .scrollBar(BarState.Off)
-        } else if (this.mode === 3) {
-          // ── 分数计算 ──
-          Scroll() {
-            Column({ space: 14 }) {
-              Text('分数四则运算')
-                .fontSize(14)
-                .fontWeight(FontWeight.Bold)
-                .fontColor($r('app.color.text_primary'))
-                .alignSelf(ItemAlign.Start)
-              Row({ space: 10 }) {
-                // 分数 1
-                Column({ space: 4 }) {
-                  this.inputField('分子', this.fracN1, (v) => { this.fracN1 = v; })
-                  Divider().strokeWidth(2).color($r('app.color.text_primary'))
-                  this.inputField('分母', this.fracD1, (v) => { this.fracD1 = v; })
-                }
-                .layoutWeight(2)
-                // 运算符
-                Column() {
-                  Text(['＋', '－', '×', '÷'][this.fracOp])
-                    .fontSize(24)
-                    .fontWeight(FontWeight.Bold)
-                    .fontColor(Color.White)
-                    .width(48).height(48)
-                    .textAlign(TextAlign.Center)
-                    .borderRadius(24)
-                    .backgroundColor($r('app.color.accent'))
-                    .onClick(() => {
-                      this.fracOp = (this.fracOp + 1) % 4;
-                    })
-                  Text('点击切换')
-                    .fontSize(10)
-                    .fontColor($r('app.color.text_secondary'))
-                    .margin({ top: 4 })
-                }
-                .layoutWeight(1)
-                // 分数 2
-                Column({ space: 4 }) {
-                  this.inputField('分子', this.fracN2, (v) => { this.fracN2 = v; })
-                  Divider().strokeWidth(2).color($r('app.color.text_primary'))
-                  this.inputField('分母', this.fracD2, (v) => { this.fracD2 = v; })
-                }
-                .layoutWeight(2)
-              }
+            .constraintSize({ maxHeight: 150 })
+            .padding(14)
+            .borderRadius(16)
+            .backgroundColor($r('app.color.bg_card'))
+            .scrollBar(BarState.Off)
+          } else {
+            Text('支持任意一元方程：二次以内给精确解（含复根与分数），\n其余自动数值求根；含 = 自动移项，不写 = 视为 f(x)=0')
+              .fontSize(11)
+              .fontColor($r('app.color.text_secondary'))
               .width('100%')
-              .alignItems(VerticalAlign.Center)
-              Button('计算并约分')
-                .width('100%').height(46)
-                .fontSize(15).fontWeight(FontWeight.Bold)
-                .backgroundColor($r('app.color.accent'))
-                .onClick(() => this.calcFraction())
-              if (this.fracResult.length > 0) {
-                this.resultCard(this.fracResult)
-              }
-
-              Divider().margin({ top: 6, bottom: 6 })
-
-              Text('小数 → 分数')
-                .fontSize(14)
-                .fontWeight(FontWeight.Bold)
-                .fontColor($r('app.color.text_primary'))
-                .alignSelf(ItemAlign.Start)
-              this.inputField('如 0.375、3.14159、0.333333', this.decInput, (v) => { this.decInput = v; })
-              Button('化为最简分数')
-                .width('100%').height(46)
-                .fontSize(15).fontWeight(FontWeight.Bold)
-                .backgroundColor($r('app.color.accent'))
-                .onClick(() => this.decToFraction())
-              if (this.decResult.length > 0) {
-                this.resultCard(this.decResult)
-              }
-            }
-            .width('100%')
-            .padding({ bottom: 20 })
           }
-          .layoutWeight(1)
-          .scrollBar(BarState.Off)
+
+          this.keyboard(EQ_KEYS, (k) => this.onEqKey(k))
         } else {
           // ── 统计分析 ──
           Scroll() {

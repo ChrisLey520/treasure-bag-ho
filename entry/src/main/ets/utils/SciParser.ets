@@ -245,6 +245,69 @@ export function normalizeFx(input: string): string {
   return s.replace(/X/g, 'x').trim();
 }
 
+/**
+ * 方程输入 → f(x) 标准形式：
+ * 含 = 则移项为 lhs−(rhs)；y=/f(x)= 前缀视为 rhs 即 f(x)
+ */
+export function equationToFx(input: string): string {
+  let s = input.trim().replace(/X/g, 'x');
+  const eq = s.indexOf('=');
+  if (eq < 0) {
+    return s;   // 无 = ：视为 f(x) = 0
+  }
+  const lhs = s.substring(0, eq).trim();
+  const rhs = s.substring(eq + 1).trim();
+  const lhsKey = lhs.replace(/\s/g, '').toLowerCase();
+  if (lhsKey === 'y' || lhsKey === 'f(x)' || lhsKey === 'fx' || lhsKey === 'f') {
+    return rhs;  // y = … 形式：求 rhs = 0 的根
+  }
+  if (rhs.length === 0 || rhs === '0') {
+    return lhs;
+  }
+  return `(${lhs})−(${rhs})`;   // 通用移项
+}
+
+/** 小数 → 最简分数（连分数展开）。误差 > tol 或分母超限返回 undefined */
+export function toFraction(v: number, maxDen: number): string | undefined {
+  if (isNaN(v) || !isFinite(v)) {
+    return undefined;
+  }
+  if (Math.floor(v) === v) {
+    return undefined;   // 整数无须分数形式
+  }
+  const x = Math.abs(v);
+  let n0 = 0;
+  let d0 = 1;
+  let n1 = 1;
+  let d1 = 0;
+  let val = x;
+  for (let i = 0; i < 40; i++) {
+    const a = Math.floor(val);
+    const n2 = a * n1 + n0;
+    const d2 = a * d1 + d0;
+    if (d2 > maxDen) {
+      return undefined;   // 分母超限：不是"好看"的分数
+    }
+    n0 = n1;
+    d0 = d1;
+    n1 = n2;
+    d1 = d2;
+    const frac = val - a;
+    if (frac < 1e-12 || Math.abs(n1 / d1 - x) < 1e-12 * Math.max(1, x)) {
+      break;
+    }
+    val = 1 / frac;
+  }
+  if (d1 <= 1) {
+    return undefined;
+  }
+  // 验证精度（避免把无理数硬凑成分数）
+  if (Math.abs(n1 / d1 - x) > 1e-10 * Math.max(1, x)) {
+    return undefined;
+  }
+  return `${v < 0 ? '−' : ''}${n1}/${d1}`;
+}
+
 /** 结果格式化：12 位精度修约，超范围转科学计数法 */
 export function fmtResult(v: number): string {
   if (isNaN(v)) {
