@@ -25,62 +25,164 @@ function parseHex(input: string): number[] | undefined {
   return [r, g, b];
 }
 
-/** RGB 调色面板：滑杆 + 十六进制输入，双向同步 */
+/** HSV → RGB，h∈[0,360) s,v∈[0,1] */
+function hsv2rgb(h: number, s: number, v: number): number[] {
+  const c = v * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = v - c;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+
+/** RGB → HSV */
+function rgb2hsv(r: number, g: number, b: number): number[] {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const d = max - min;
+  let h = 0;
+  if (d > 0) {
+    if (max === rn) { h = 60 * (((gn - bn) / d) % 6); }
+    else if (max === gn) { h = 60 * ((bn - rn) / d + 2); }
+    else { h = 60 * ((rn - gn) / d + 4); }
+  }
+  if (h < 0) { h += 360; }
+  return [h, max === 0 ? 0 : d / max, max];
+}
+
+/** 圆盘取色器：HSV 色轮点触取色 + 明度滑杆 + HEX 输入 */
 @Component
-struct RgbPicker {
+struct WheelPicker {
   @Link hexColor: string;
-  @State r: number = 0;
-  @State g: number = 0;
-  @State b: number = 0;
+  @State hue: number = 280;
+  @State sat: number = 1;
+  @State bright: number = 1;
   @State hexInput: string = '';
+  private readonly SIZE: number = 220;
+  private settings: RenderingContextSettings = new RenderingContextSettings(true);
+  private canvasCtx: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
 
   aboutToAppear(): void {
     const rgb = parseHex(this.hexColor);
     if (rgb !== undefined) {
-      this.r = rgb[0];
-      this.g = rgb[1];
-      this.b = rgb[2];
+      const hsv = rgb2hsv(rgb[0], rgb[1], rgb[2]);
+      this.hue = hsv[0];
+      this.sat = hsv[1];
+      this.bright = hsv[2];
     }
     this.hexInput = this.hexColor;
   }
 
   sync(): void {
-    this.hexColor = `#${toHex(this.r)}${toHex(this.g)}${toHex(this.b)}`;
+    const rgb = hsv2rgb(this.hue, this.sat, this.bright);
+    this.hexColor = `#${toHex(rgb[0])}${toHex(rgb[1])}${toHex(rgb[2])}`;
     this.hexInput = this.hexColor;
+    this.drawWheel();
   }
 
-  @Builder
-  channel(label: string, value: number, barColor: string, onChangeValue: (v: number) => void) {
-    Row({ space: 10 }) {
-      Text(label).fontSize(13).fontColor($r('app.color.text_secondary')).width(16)
-      Slider({ value: value, min: 0, max: 255, step: 1 })
-        .layoutWeight(1)
-        .selectedColor(barColor)
-        .onChange((v: number) => onChangeValue(v))
-      Text(Math.round(value).toString())
-        .fontSize(12).fontColor($r('app.color.text_primary'))
-        .width(32).textAlign(TextAlign.End)
+  drawWheel(): void {
+    const c = this.canvasCtx;
+    const R = this.SIZE / 2;
+    c.clearRect(0, 0, this.SIZE, this.SIZE);
+    // 色相：锥形渐变（角度 0 在正右方，顺时针，与 atan2 取色一致）
+    const conic = c.createConicGradient(0, R, R);
+    for (let i = 0; i <= 6; i++) {
+      const rgb = hsv2rgb(i * 60 % 360, 1, 1);
+      conic.addColorStop(i / 6, `#${toHex(rgb[0])}${toHex(rgb[1])}${toHex(rgb[2])}`);
     }
-    .width('100%')
+    c.beginPath();
+    c.arc(R, R, R, 0, Math.PI * 2);
+    c.fillStyle = conic;
+    c.fill();
+    // 饱和度：中心白 → 边缘透明
+    const radial = c.createRadialGradient(R, R, 0, R, R, R);
+    radial.addColorStop(0, 'rgba(255,255,255,1)');
+    radial.addColorStop(1, 'rgba(255,255,255,0)');
+    c.beginPath();
+    c.arc(R, R, R, 0, Math.PI * 2);
+    c.fillStyle = radial;
+    c.fill();
+    // 明度：黑色蒙层
+    if (this.bright < 1) {
+      c.beginPath();
+      c.arc(R, R, R, 0, Math.PI * 2);
+      c.fillStyle = `rgba(0,0,0,${(1 - this.bright).toFixed(3)})`;
+      c.fill();
+    }
+    // 选中点指示环
+    const rad = this.hue * Math.PI / 180;
+    const dist = this.sat * (R - 10);
+    const px = R + Math.cos(rad) * dist;
+    const py = R + Math.sin(rad) * dist;
+    c.beginPath();
+    c.arc(px, py, 10, 0, Math.PI * 2);
+    c.strokeStyle = '#FFFFFF';
+    c.lineWidth = 3;
+    c.stroke();
+    c.beginPath();
+    c.arc(px, py, 12, 0, Math.PI * 2);
+    c.strokeStyle = 'rgba(0,0,0,0.35)';
+    c.lineWidth = 1;
+    c.stroke();
+  }
+
+  pickAt(x: number, y: number): void {
+    const R = this.SIZE / 2;
+    const dx = x - R;
+    const dy = y - R;
+    let deg = Math.atan2(dy, dx) * 180 / Math.PI;
+    if (deg < 0) {
+      deg += 360;
+    }
+    this.hue = deg;
+    this.sat = Math.min(1, Math.sqrt(dx * dx + dy * dy) / (R - 10));
+    this.sync();
   }
 
   build() {
-    Column({ space: 4 }) {
-      this.channel('R', this.r, '#F5576C', (v) => {
-        this.r = v;
-        this.sync();
-      })
-      this.channel('G', this.g, '#43E97B', (v) => {
-        this.g = v;
-        this.sync();
-      })
-      this.channel('B', this.b, '#5B6BF5', (v) => {
-        this.b = v;
-        this.sync();
-      })
+    Column({ space: 12 }) {
+      Canvas(this.canvasCtx)
+        .width(this.SIZE)
+        .height(this.SIZE)
+        .onReady(() => this.drawWheel())
+        .onTouch((e: TouchEvent) => {
+          if (e.type === TouchType.Down || e.type === TouchType.Move) {
+            if (e.touches.length > 0) {
+              this.pickAt(e.touches[0].x, e.touches[0].y);
+            }
+          }
+        })
+        .alignSelf(ItemAlign.Center)
 
+      // 明度
       Row({ space: 10 }) {
-        Text('HEX').fontSize(13).fontColor($r('app.color.text_secondary'))
+        Text('明度').fontSize(13).fontColor($r('app.color.text_secondary'))
+        Slider({ value: this.bright * 100, min: 0, max: 100, step: 1 })
+          .layoutWeight(1)
+          .selectedColor(this.hexColor)
+          .onChange((v: number) => {
+            this.bright = v / 100;
+            this.sync();
+          })
+      }
+      .width('100%')
+
+      // 当前色 + HEX
+      Row({ space: 10 }) {
+        Column()
+          .width(40).height(40).borderRadius(12)
+          .backgroundColor(this.hexColor)
+          .border({ width: 1, color: '#33888888' })
         TextInput({ placeholder: '#RRGGBB', text: this.hexInput })
           .layoutWeight(1)
           .height(40).borderRadius(10)
@@ -91,15 +193,16 @@ struct RgbPicker {
             this.hexInput = v;
             const rgb = parseHex(v);
             if (rgb !== undefined) {
-              this.r = rgb[0];
-              this.g = rgb[1];
-              this.b = rgb[2];
+              const hsv = rgb2hsv(rgb[0], rgb[1], rgb[2]);
+              this.hue = hsv[0];
+              this.sat = hsv[1];
+              this.bright = hsv[2];
               this.hexColor = `#${toHex(rgb[0])}${toHex(rgb[1])}${toHex(rgb[2])}`;
+              this.drawWheel();
             }
           })
       }
       .width('100%')
-      .margin({ top: 4 })
     }
     .width('100%')
   }
@@ -222,7 +325,7 @@ export struct BannerPage {
               Text('背景色').fontSize(13).fontColor($r('app.color.text_secondary')).alignSelf(ItemAlign.Start)
               this.colorRow(BG_COLORS, this.bgIndex, this.customBg, 'bg', (i) => { this.bgIndex = i; })
               if (this.bgIndex < 0) {
-                RgbPicker({ hexColor: this.customBg })
+                WheelPicker({ hexColor: this.customBg })
               }
             }
             .width('100%').padding(16).borderRadius(16)
@@ -233,7 +336,7 @@ export struct BannerPage {
               Text('文字色').fontSize(13).fontColor($r('app.color.text_secondary')).alignSelf(ItemAlign.Start)
               this.colorRow(TEXT_COLORS, this.textIndex, this.customText, 'tx', (i) => { this.textIndex = i; })
               if (this.textIndex < 0) {
-                RgbPicker({ hexColor: this.customText })
+                WheelPicker({ hexColor: this.customText })
               }
             }
             .width('100%').padding(16).borderRadius(16)
