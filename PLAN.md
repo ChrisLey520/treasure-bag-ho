@@ -192,9 +192,15 @@ treasure-bag/
   - 共用 utils/ToolStore（preferences 整体 JSON 序列化）
 - [ ] 角度尺、白噪音（需音频资源，后补）
 
-### Phase 4：图片 / 媒体本地处理
-- [ ] 图片压缩、九宫格切图、镜像、取色器、图片转 PDF
-- [ ] OCR（Core Vision Kit 本地识别）、二维码生成/扫码
+### Phase 4：图片 / 媒体本地处理 ✅（2026-07-15 完成，共 39 个工具）
+- [x] 图片取色器（PhotoViewPicker 免权限选图 + readPixels 像素级取色）
+- [x] 图片镜像（flip/rotate + SaveButton 存相册）
+- [x] 图片压缩（JPEG 质量 + 分辨率双控，显示压缩率）
+- [x] 二维码生成（Scan Kit generateBarcode，可存相册）
+- [x] 扫码识别（Scan Kit 系统扫码界面，免声明相机权限，支持相册识码）
+- [x] OCR 文字识别（Core Vision Kit 本地识别，免网络）
+- 共用 utils/ImageUtil（选图 / JPEG 编码 / 存相册 / 体积格式化）
+- [ ] 九宫格切图、图片转 PDF（后补）
 
 ### Phase 5：网络类工具（需选型免费 API 并申请网络权限）
 - [ ] 天气、60 秒早报、IP 定位、油价、垃圾分类、据意查句、翻译…

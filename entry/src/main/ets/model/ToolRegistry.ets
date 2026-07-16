@@ -4,6 +4,7 @@
 
 export enum ToolCategory {
   RECOMMEND = '推荐',
+  IMAGE = '图片',
   TEXT = '文字',
   LIFE = '生活',
   QUERY = '查询',
@@ -20,6 +21,13 @@ export interface ToolInfo {
 }
 
 export const TOOLS: ToolInfo[] = [
+  // ── 图片/媒体 ──
+  { id: 'colorpicker', name: '图片取色器', desc: '点击图片提取颜色', emoji: '🎨', category: ToolCategory.IMAGE, gradient: ['#F093FB', '#F5576C'] },
+  { id: 'mirror', name: '图片镜像', desc: '翻转 · 旋转', emoji: '🪞', category: ToolCategory.IMAGE, gradient: ['#4FACFE', '#00F2FE'] },
+  { id: 'compress', name: '图片压缩', desc: '质量 · 分辨率双控', emoji: '🗜️', category: ToolCategory.IMAGE, gradient: ['#667EEA', '#764BA2'] },
+  { id: 'qrgen', name: '二维码生成', desc: '文本 · 网址转码', emoji: '▦', category: ToolCategory.IMAGE, gradient: ['#141E30', '#243B55'] },
+  { id: 'qrscan', name: '扫码识别', desc: '二维码 · 条形码', emoji: '📷', category: ToolCategory.IMAGE, gradient: ['#0F2027', '#2C5364'] },
+  { id: 'ocr', name: 'OCR 识字', desc: '本地 AI 提取文字', emoji: '🔤', category: ToolCategory.IMAGE, gradient: ['#8E2DE2', '#4A00E0'] },
   // ── 查询/计算 ──
   { id: 'radix', name: '进制转换', desc: '2/8/10/16 进制互转', emoji: '🔢', category: ToolCategory.DEV, gradient: ['#667EEA', '#764BA2'] },
   { id: 'color', name: '颜色转换', desc: 'HEX / RGB / HSB', emoji: '🎨', category: ToolCategory.DEV, gradient: ['#F093FB', '#F5576C'] },

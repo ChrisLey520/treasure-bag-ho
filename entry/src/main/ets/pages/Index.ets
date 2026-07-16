@@ -34,12 +34,19 @@ import { RulerPage } from './tools/RulerPage';
 import { TodoPage } from './tools/TodoPage';
 import { HabitPage } from './tools/HabitPage';
 import { AnniversaryPage } from './tools/AnniversaryPage';
+import { ColorPickerPage } from './tools/ColorPickerPage';
+import { MirrorPage } from './tools/MirrorPage';
+import { CompressPage } from './tools/CompressPage';
+import { QrGenPage } from './tools/QrGenPage';
+import { QrScanPage } from './tools/QrScanPage';
+import { OcrPage } from './tools/OcrPage';
 
 const PREF_NAME = 'treasure_bag';
 const KEY_FAVORITES = 'favorites';
 
 const CATEGORIES: ToolCategory[] = [
   ToolCategory.RECOMMEND,
+  ToolCategory.IMAGE,
   ToolCategory.TEXT,
   ToolCategory.LIFE,
   ToolCategory.QUERY,
@@ -129,6 +136,12 @@ struct Index {
     else if (name === 'todo') { TodoPage() }
     else if (name === 'habit') { HabitPage() }
     else if (name === 'anniversary') { AnniversaryPage() }
+    else if (name === 'colorpicker') { ColorPickerPage() }
+    else if (name === 'mirror') { MirrorPage() }
+    else if (name === 'compress') { CompressPage() }
+    else if (name === 'qrgen') { QrGenPage() }
+    else if (name === 'qrscan') { QrScanPage() }
+    else if (name === 'ocr') { OcrPage() }
   }
 
   build() {
