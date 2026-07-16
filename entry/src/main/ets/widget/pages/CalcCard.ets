@@ -13,6 +13,7 @@ const KEYS: string[][] = [
 struct CalcCard {
   @State display: string = '0';
   @State expression: string = '';
+  @State history: string = '';   // 上行：完整表达式（= 之后带等号）
 
   isOp(k: string): boolean {
     return k === '÷' || k === '×' || k === '−' || k === '+' || k === '%';
@@ -89,16 +90,21 @@ struct CalcCard {
     if (k === 'C') {
       this.display = '0';
       this.expression = '';
+      this.history = '';
       return;
     }
     if (k === '⌫') {
       this.expression = this.expression.slice(0, -1);
       this.display = this.expression.length > 0 ? this.expression : '0';
+      this.history = '';
       return;
     }
     if (k === '=') {
-      this.display = this.evaluate(this.expression);
-      this.expression = this.display === '错误' || this.display === '不能除以 0' ? '' : this.display;
+      const expr = this.expression;
+      this.display = this.evaluate(expr);
+      const failed = this.display === '错误' || this.display === '不能除以 0';
+      this.history = failed || expr.length === 0 ? '' : `${expr} =`;
+      this.expression = failed ? '' : this.display;
       return;
     }
     if (this.isOp(k)) {
@@ -110,8 +116,13 @@ struct CalcCard {
       }
       this.expression += k;
     } else {
+      // 结果上继续输入数字视为开始新算式
+      if (this.history.length > 0) {
+        this.expression = '';
+      }
       this.expression += k;
     }
+    this.history = '';
     this.display = this.expression;
   }
 
@@ -140,25 +151,35 @@ struct CalcCard {
 
   build() {
     Column({ space: 6 }) {
-      // 显示区（点击可进 App 打开完整计算器）
-      Text(this.display)
-        .fontSize(this.display.length > 12 ? 16 : 22)
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('app.color.text_primary'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .textAlign(TextAlign.End)
-        .width('100%')
-        .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-        .borderRadius(12)
-        .backgroundColor($r('app.color.bg_card'))
-        .onClick(() => {
-          postCardAction(this, {
-            action: 'router',
-            abilityName: 'EntryAbility',
-            params: { targetTool: 'calculator' }
-          });
-        })
+      // 显示区：两行 — 上行表达式历史，下行当前输入/结果（点击进 App）
+      Column({ space: 2 }) {
+        Text(this.history.length > 0 ? this.history : ' ')
+          .fontSize(12)
+          .fontColor($r('app.color.text_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .textAlign(TextAlign.End)
+          .width('100%')
+        Text(this.display)
+          .fontSize(this.display.length > 14 ? 16 : 22)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .textAlign(TextAlign.End)
+          .width('100%')
+      }
+      .width('100%')
+      .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+      .borderRadius(12)
+      .backgroundColor($r('app.color.bg_card'))
+      .onClick(() => {
+        postCardAction(this, {
+          action: 'router',
+          abilityName: 'EntryAbility',
+          params: { targetTool: 'calculator' }
+        });
+      })
 
       // 键盘（布局与 App 内计算器一致）
       Column({ space: 4 }) {
