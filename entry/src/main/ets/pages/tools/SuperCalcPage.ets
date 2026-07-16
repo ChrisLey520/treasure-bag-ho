@@ -15,6 +15,11 @@ interface Template {
   expr: string;
 }
 
+interface TemplateGroup {
+  label: string;
+  exprs: string[];
+}
+
 /** 基础键盘：对齐参考 App，可上下滚动（□ 为占位符模板键） */
 const BASIC_KEYS: string[][] = [
   ['log□', '□^□', '√□', '□/□', '÷'],
@@ -49,22 +54,14 @@ const AZ_TEMPLATES: Template[] = [
   { label: '一元二次·顶点式', expr: 'y=a(x−h)^2+k' }
 ];
 
-/** f(x) 模板：分类 + 公式，两列展示，点击整体填入 */
-const TEMPLATES: Template[] = [
-  { label: '指数函数', expr: '2^x=32' },
-  { label: '对数函数', expr: 'log2x=3' },
-  { label: '一元一次', expr: '2x+3=7' },
-  { label: '一元二次', expr: 'x^2−3x+2=0' },
-  { label: '黄金分割', expr: 'x^2−x−1=0' },
-  { label: '三角方程', expr: 'sin x=0.5' },
-  { label: '三次方程', expr: 'x^3−3x+1=0' },
-  { label: '复根示例', expr: 'x^2+1=0' },
-  { label: '排列组合', expr: 'C(10,3)+A(5,2)' },
-  { label: '最大公约', expr: 'gcd(24,36)' },
-  { label: '最小公倍', expr: 'lcm(4,6)' },
-  { label: '角度换算', expr: '30°+45′30″' },
-  { label: '勾股定理', expr: '√(3^2+4^2)' },
-  { label: '复利十年', expr: '(1+0.03)^10' }
+/** f(x) 模板：对齐参考 App，左分类右公式，一类可多式 */
+const TEMPLATE_GROUPS: TemplateGroup[] = [
+  { label: '指数函数', exprs: ['y=a^x'] },
+  { label: '对数函数', exprs: ['y=log(a,x)'] },
+  { label: '圆', exprs: ['(x−a)^2+(y−b)^2=1', 'x^2+y^2+ax+by+c=0'] },
+  { label: '椭圆', exprs: ['x^2÷a^2+y^2÷b^2=1', '(x−k)^2÷a^2+(y−h)^2÷b^2=1'] },
+  { label: '双曲线', exprs: ['x^2÷a^2−y^2÷b^2=1', '(x−k)^2÷a^2−(y−h)^2÷b^2=1'] },
+  { label: '抛物线', exprs: ['y^2=2px'] }
 ];
 
 const MODES: string[] = ['计算', '绘图', '统计'];
@@ -807,43 +804,57 @@ export struct SuperCalcPage {
               .scrollBar(BarState.Off)
               .edgeEffect(EdgeEffect.Spring)
             } else {
-              // f(x) 模板：左分类名 右公式（对齐截图两列布局）
-              List() {
-                ForEach(TEMPLATES, (t: Template) => {
-                  ListItem() {
+              // f(x) 模板：左分类名跨行 右公式列表（对齐截图）
+              Scroll() {
+                Column() {
+                  ForEach(TEMPLATE_GROUPS, (g: TemplateGroup, gi: number) => {
                     Row() {
-                      Text(t.label)
-                        .fontSize(14)
+                      Text(g.label)
+                        .fontSize(15)
                         .fontColor($r('app.color.text_secondary'))
-                        .width('38%')
+                        .width('34%')
                         .textAlign(TextAlign.Center)
-                      Divider()
-                        .vertical(true)
-                        .height(24)
-                      Text(t.expr)
-                        .fontSize(16)
-                        .fontWeight(FontWeight.Medium)
-                        .fontColor($r('app.color.text_primary'))
-                        .layoutWeight(1)
-                        .textAlign(TextAlign.Center)
+                      Column() {
+                        ForEach(g.exprs, (ex: string, ei: number) => {
+                          Text(ex)
+                            .fontSize(15)
+                            .fontWeight(FontWeight.Medium)
+                            .fontColor($r('app.color.text_primary'))
+                            .maxLines(1)
+                            .minFontSize(10)
+                            .maxFontSize(15)
+                            .textAlign(TextAlign.Center)
+                            .width('100%')
+                            .padding({ top: 16, bottom: 16, left: 6, right: 6 })
+                            .onClick(() => {
+                              this.expression = ex;
+                              this.cursor = ex.length;
+                              this.result = '';
+                              this.fracForm = '';
+                            })
+                          if (ei < g.exprs.length - 1) {
+                            Divider().strokeWidth(0.5).color('#33888888')
+                          }
+                        }, (ex: string) => ex)
+                      }
+                      .layoutWeight(1)
+                      .border({ width: { left: 0.5 }, color: '#33888888' })
                     }
                     .width('100%')
-                    .padding({ top: 14, bottom: 14 })
-                    .onClick(() => {
-                      this.expression = t.expr;
-                      this.cursor = t.expr.length;
-                      this.result = '';
-                      this.fracForm = '';
-                    })
-                  }
-                }, (t: Template) => t.label)
+                    .alignItems(VerticalAlign.Center)
+                    if (gi < TEMPLATE_GROUPS.length - 1) {
+                      Divider().strokeWidth(0.5).color('#33888888')
+                    }
+                  }, (g: TemplateGroup) => g.label)
+                }
+                .width('100%')
               }
-              .divider({ strokeWidth: 0.5, color: '#33888888' })
               .layoutWeight(1)
               .height('100%')
               .borderRadius(12)
               .backgroundColor($r('app.color.bg_card'))
               .scrollBar(BarState.Off)
+              .edgeEffect(EdgeEffect.Spring)
             }
           }
           .layoutWeight(1)
