@@ -117,12 +117,12 @@ struct CalcCard {
 
   keyColor(k: string): ResourceColor {
     if (k === '=') {
-      return '#7B88FF';
+      return $r('app.color.accent');
     }
     if (k === 'C' || k === '⌫' || this.isOp(k)) {
       return '#2E3140';
     }
-    return '#252836';
+    return $r('app.color.bg_card');
   }
 
   keyTextColor(k: string): ResourceColor {
@@ -135,7 +135,7 @@ struct CalcCard {
     if (k === '⌫' || this.isOp(k)) {
       return '#7B88FF';
     }
-    return '#F2F3F7';
+    return $r('app.color.text_primary');
   }
 
   build() {
@@ -144,14 +144,14 @@ struct CalcCard {
       Text(this.display)
         .fontSize(this.display.length > 12 ? 16 : 22)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#F2F3F7')
+        .fontColor($r('app.color.text_primary'))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .textAlign(TextAlign.End)
         .width('100%')
-        .padding({ left: 10, right: 10, top: 6, bottom: 6 })
-        .borderRadius(10)
-        .backgroundColor('#252836')
+        .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+        .borderRadius(12)
+        .backgroundColor($r('app.color.bg_card'))
         .onClick(() => {
           postCardAction(this, {
             action: 'router',
@@ -160,7 +160,7 @@ struct CalcCard {
           });
         })
 
-      // 键盘
+      // 键盘（布局与 App 内计算器一致）
       Column({ space: 4 }) {
         ForEach(KEYS, (row: string[]) => {
           Row({ space: 4 }) {
@@ -172,7 +172,7 @@ struct CalcCard {
                 .textAlign(TextAlign.Center)
                 .layoutWeight(1)
                 .height('100%')
-                .borderRadius(8)
+                .borderRadius(10)
                 .backgroundColor(this.keyColor(k))
                 .onClick(() => this.onKey(k))
             }, (k: string) => k)
@@ -187,6 +187,6 @@ struct CalcCard {
     .padding(10)
     .width('100%')
     .height('100%')
-    .backgroundColor('#1A1D26')
+    .backgroundColor($r('app.color.bg_page'))
   }
 }
