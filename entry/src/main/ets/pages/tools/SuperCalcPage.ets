@@ -27,13 +27,12 @@ const BASIC_KEYS: string[][] = [
   ['π', 'e', 'i', '', '']
 ];
 
-/** 函数键盘：三角/反三角/对数/组合数/角度 */
+/** 函数键盘：对齐参考 App f 面板（□ 为占位符模板键） */
 const FUNC_KEYS: string[][] = [
-  ['sin', 'cos', 'tan', 'ln', 'log'],
-  ['arcsin', 'arccos', 'arctan', 'log₂', 'abs'],
-  ['!', '°', '′', '″', 'DEG'],
-  ['A(', 'C(', 'lcm(', 'gcd(', ','],
-  ['√', '^', '(', ')', 'π']
+  ['sin', 'cos', 'tan', '公倍', '公约'],
+  ['arcsin', 'arccos', 'arctan', '|□|', '□!'],
+  ['∫□', 'lim', 'A□', 'C□', ''],
+  ['', '', '', '', '']
 ];
 
 /** 字母键盘（未知数用 x，其余字母预留） */
@@ -91,7 +90,7 @@ export struct SuperCalcPage {
   private plotCtx: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
   private readonly PLOT_H: number = 240;
   private readonly FNS: string[] = ['arcsin', 'arccos', 'arctan', 'asin', 'acos', 'atan',
-    'log2', 'lcm(', 'gcd(', 'sin', 'cos', 'tan', 'abs', 'ln', 'log', 'ANS'];
+    'log2', 'lcm(', 'gcd(', 'abs(', 'sin', 'cos', 'tan', 'abs', 'ln', 'log', 'ANS', 'A(', 'C('];
 
   // ════════ 光标编辑 ════════
   insertText(s: string): void {
@@ -352,6 +351,36 @@ export struct SuperCalcPage {
       } else {
         this.insertText('′');
       }
+      return;
+    }
+    // f 面板模板键
+    if (k === '公倍') {
+      this.insertText('lcm(');
+      return;
+    }
+    if (k === '公约') {
+      this.insertText('gcd(');
+      return;
+    }
+    if (k === '|□|') {
+      this.insertText('abs(');
+      return;
+    }
+    if (k === '□!') {
+      this.insertText('!');
+      return;
+    }
+    if (k === 'A□') {
+      this.insertText('A(');
+      return;
+    }
+    if (k === 'C□') {
+      this.insertText('C(');
+      return;
+    }
+    if (k === '∫□' || k === 'lim') {
+      this.result = `${k === 'lim' ? '极限' : '积分'}属于符号运算，暂未支持`;
+      this.fracForm = '';
       return;
     }
     this.insertText(k);
