@@ -9,7 +9,27 @@ struct FocusCard {
   build() {
     Column({ space: 8 }) {
       Row({ space: 6 }) {
-        Text('⏳').fontSize(16)
+        // 徽标：自绘极简时钟（圆环 + 时针分针）
+        Stack() {
+          Column()
+            .width(16).height(16)
+            .borderRadius(8)
+            .border({ width: 1.5, color: Color.White })
+          // 分针（竖，指 12 点）
+          Column()
+            .width(1.5).height(4.5)
+            .borderRadius(1)
+            .backgroundColor(Color.White)
+            .offset({ x: 0, y: -2.2 })
+          // 时针（横，指 3 点）
+          Column()
+            .width(3.5).height(1.5)
+            .borderRadius(1)
+            .backgroundColor(Color.White)
+            .offset({ x: 1.8, y: 0 })
+        }
+        .width(16).height(16)
+
         Text('专注时钟')
           .fontSize(14)
           .fontWeight(FontWeight.Bold)
