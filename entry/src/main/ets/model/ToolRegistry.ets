@@ -38,6 +38,7 @@ export const TOOLS: ToolInfo[] = [
   { id: 'bmi', name: 'BMI 计算', desc: '身体质量指数', emoji: '⚖️', category: ToolCategory.QUERY, gradient: ['#30CFD0', '#330867'] },
   { id: 'timestamp', name: '时间戳转换', desc: 'Unix 时间戳互转', emoji: '⏱️', category: ToolCategory.DEV, gradient: ['#A8EDEA', '#5B6BF5'] },
   { id: 'calculator', name: '计算器', desc: '日常四则运算', emoji: '🧮', category: ToolCategory.QUERY, gradient: ['#232526', '#414345'] },
+  { id: 'supercalc', name: '超级计算器', desc: '科学计算 · 函数绘图', emoji: '🧪', category: ToolCategory.QUERY, gradient: ['#42275A', '#734B6D'] },
   { id: 'calendar', name: '万年历', desc: '公历农历 · 干支生肖', emoji: '🗓️', category: ToolCategory.QUERY, gradient: ['#C33764', '#1D2671'] },
   // ── 文字/文案 ──
   { id: 'answer', name: '答案之书', desc: '让命运替你决定', emoji: '📖', category: ToolCategory.TEXT, gradient: ['#5B247A', '#1BCEDF'] },

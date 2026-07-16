@@ -53,6 +53,7 @@ import { WoodFishPage } from './tools/WoodFishPage';
 import { CoinDicePage } from './tools/CoinDicePage';
 import { StopwatchPage } from './tools/StopwatchPage';
 import { LedgerPage } from './tools/LedgerPage';
+import { SuperCalcPage } from './tools/SuperCalcPage';
 
 const PREF_NAME = 'treasure_bag';
 const KEY_FAVORITES = 'favorites';
@@ -190,6 +191,7 @@ struct Index {
     else if (name === 'coindice') { CoinDicePage() }
     else if (name === 'stopwatch') { StopwatchPage() }
     else if (name === 'ledger') { LedgerPage() }
+    else if (name === 'supercalc') { SuperCalcPage() }
   }
 
   build() {
