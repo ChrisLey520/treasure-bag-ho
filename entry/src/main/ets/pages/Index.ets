@@ -48,6 +48,11 @@ import { ProtractorPage } from './tools/ProtractorPage';
 import { WhiteNoisePage } from './tools/WhiteNoisePage';
 import { NineGridPage } from './tools/NineGridPage';
 import { PasswordPage } from './tools/PasswordPage';
+import { WaterPage } from './tools/WaterPage';
+import { WoodFishPage } from './tools/WoodFishPage';
+import { CoinDicePage } from './tools/CoinDicePage';
+import { StopwatchPage } from './tools/StopwatchPage';
+import { LedgerPage } from './tools/LedgerPage';
 
 const PREF_NAME = 'treasure_bag';
 const KEY_FAVORITES = 'favorites';
@@ -158,6 +163,11 @@ struct Index {
     else if (name === 'whitenoise') { WhiteNoisePage() }
     else if (name === 'ninegrid') { NineGridPage() }
     else if (name === 'password') { PasswordPage() }
+    else if (name === 'water') { WaterPage() }
+    else if (name === 'woodfish') { WoodFishPage() }
+    else if (name === 'coindice') { CoinDicePage() }
+    else if (name === 'stopwatch') { StopwatchPage() }
+    else if (name === 'ledger') { LedgerPage() }
   }
 
   build() {
