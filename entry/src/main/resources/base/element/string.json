@@ -1,6 +1,8 @@
 {
   "string": [
     { "name": "module_desc", "value": "百宝袋主模块" },
-    { "name": "ability_desc", "value": "百宝袋" }
+    { "name": "ability_desc", "value": "百宝袋" },
+    { "name": "focus_card_name", "value": "专注时钟" },
+    { "name": "focus_card_desc", "value": "无需打开应用，卡片上一键开始专注" }
   ]
 }

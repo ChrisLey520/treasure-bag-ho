@@ -12,7 +12,7 @@ import { AnswerPage } from './tools/AnswerPage';
 import { BannerPage } from './tools/BannerPage';
 import { RainbowPage } from './tools/RainbowPage';
 import { KfcPage } from './tools/KfcPage';
-import { PomodoroPage } from './tools/PomodoroPage';
+import { FocusPage } from './tools/FocusPage';
 import { ScoreboardPage } from './tools/ScoreboardPage';
 import { DecisionPage } from './tools/DecisionPage';
 import { JsonPage } from './tools/JsonPage';
@@ -72,10 +72,32 @@ struct Index {
   @State currentCategory: ToolCategory = ToolCategory.RECOMMEND;
   @State keyword: string = '';
   @State favorites: string[] = [];
+  @StorageProp('targetTool') @Watch('onTargetTool') targetTool: string = '';
   pathStack: NavPathStack = new NavPathStack();
   private pref?: preferences.Preferences;
 
+  /** 服务卡片 router 直达工具页 */
+  onTargetTool(): void {
+    this.openTargetTool();
+  }
+
+  openTargetTool(): void {
+    if (this.targetTool.length === 0) {
+      return;
+    }
+    const target = this.targetTool;
+    AppStorage.setOrCreate('targetTool', '');
+    // 已在目标页则不重复压栈
+    const names = this.pathStack.getAllPathName();
+    if (names.length > 0 && names[names.length - 1] === target) {
+      return;
+    }
+    this.pathStack.clear();
+    this.pathStack.pushPathByName(target, null);
+  }
+
   async aboutToAppear(): Promise<void> {
+    this.openTargetTool();
     try {
       const ctx = this.getUIContext().getHostContext();
       if (ctx === undefined) {
@@ -127,7 +149,7 @@ struct Index {
     else if (name === 'banner') { BannerPage() }
     else if (name === 'rainbow') { RainbowPage() }
     else if (name === 'kfc') { KfcPage() }
-    else if (name === 'pomodoro') { PomodoroPage() }
+    else if (name === 'focus') { FocusPage() }
     else if (name === 'scoreboard') { ScoreboardPage() }
     else if (name === 'decision') { DecisionPage() }
     else if (name === 'json') { JsonPage() }

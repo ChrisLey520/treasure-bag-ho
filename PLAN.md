@@ -225,6 +225,13 @@ treasure-bag/
 - [x] 极简记账（收支分类、本月汇总卡片、长按删除）
 - 新增权限：PUBLISH_AGENT_REMINDER（代理提醒）、VIBRATE（振动）
 
+### 专注时钟改版 + 服务卡片 ✅（2026-07-15 完成）
+- [x] 番茄钟 → 专注时钟：规避 Pomodoro®/番茄工作法商标风险，去番茄意象
+  改为沉浸深蓝→青渐变全屏样式，新增 15/25/45/60 分钟预设，轮次按天持久化
+- [x] 服务卡片（FormKit）：EntryFormAbility + ArkTS 卡片（2×2 / 2×4）
+  卡片一键开始/放弃专注（message 事件），到点 setFormNextRefreshTime 自动结算轮次
+  与 App 内共用 preferences 记录；点卡片 router 直达专注页（AppStorage + @Watch）
+
 ### Phase 6：AI 增强类（需第三方付费 API，最后评估）
 - [ ] 去水印、抠图、超分、去摩尔纹…
 

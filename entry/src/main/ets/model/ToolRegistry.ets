@@ -47,7 +47,7 @@ export const TOOLS: ToolInfo[] = [
   { id: 'dogdiary', name: '舔狗日记', desc: '卑微文学鉴赏', emoji: '🐕', category: ToolCategory.TEXT, gradient: ['#606C88', '#3F4C6B'] },
   { id: 'magictext', name: '魔法文案', desc: '隐形字符防和谐', emoji: '🪄', category: ToolCategory.TEXT, gradient: ['#8E2DE2', '#4A00E0'] },
   // ── 生活 ──
-  { id: 'pomodoro', name: '番茄钟', desc: '25 分钟专注', emoji: '🍅', category: ToolCategory.LIFE, gradient: ['#FF512F', '#DD2476'] },
+  { id: 'focus', name: '专注时钟', desc: '沉浸计时 · 服务卡片', emoji: '⏳', category: ToolCategory.LIFE, gradient: ['#1A2980', '#26D0CE'] },
   { id: 'scoreboard', name: '记分牌', desc: '比赛计分器', emoji: '🏆', category: ToolCategory.LIFE, gradient: ['#11998E', '#38EF7D'] },
   { id: 'decision', name: '随机决定', desc: '转盘帮你选', emoji: '🎯', category: ToolCategory.LIFE, gradient: ['#FC466B', '#3F5EFB'] },
   { id: 'fakecall', name: '来电模拟', desc: '饭局解围神器', emoji: '📞', category: ToolCategory.LIFE, gradient: ['#134E5E', '#71B280'] },
@@ -80,7 +80,7 @@ export const TOOLS: ToolInfo[] = [
   { id: 'linuxcmd', name: 'Linux 速查', desc: '常用命令手册', emoji: '🐧', category: ToolCategory.DEV, gradient: ['#283C86', '#45A247'] },
 ];
 
-const RECOMMEND_IDS: string[] = ['answer', 'pomodoro', 'banner', 'color', 'relative', 'decision'];
+const RECOMMEND_IDS: string[] = ['answer', 'focus', 'banner', 'color', 'relative', 'decision'];
 
 export function toolsOf(category: ToolCategory, favorites: string[]): ToolInfo[] {
   if (category === ToolCategory.RECOMMEND) {
