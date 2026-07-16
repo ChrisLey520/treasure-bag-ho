@@ -96,7 +96,6 @@ struct CalcCard {
     if (k === '⌫') {
       this.expression = this.expression.slice(0, -1);
       this.display = this.expression.length > 0 ? this.expression : '0';
-      this.history = '';
       return;
     }
     if (k === '=') {
@@ -126,6 +125,34 @@ struct CalcCard {
     this.display = this.expression;
   }
 
+  /** 下行实时预览结果：输入含运算符时边输边算 */
+  liveResult(): string {
+    if (this.history.length > 0) {
+      // 刚按过 = ：下行就是最终结果
+      return this.display;
+    }
+    let hasOp = false;
+    for (let i = 0; i < this.expression.length; i++) {
+      // 首位负号不算运算符
+      if (i > 0 && this.isOp(this.expression[i])) {
+        hasOp = true;
+        break;
+      }
+    }
+    if (!hasOp) {
+      return this.expression.length > 0 ? this.expression : '0';
+    }
+    return this.evaluate(this.expression);
+  }
+
+  /** 上行：当前算式（按 = 后带等号） */
+  topLine(): string {
+    if (this.history.length > 0) {
+      return this.history;
+    }
+    return this.expression.length > 0 ? this.expression : ' ';
+  }
+
   keyColor(k: string): ResourceColor {
     if (k === '=') {
       return $r('app.color.accent');
@@ -151,17 +178,34 @@ struct CalcCard {
 
   build() {
     Column({ space: 6 }) {
-      // 显示区：两行 — 上行表达式历史，下行当前输入/结果（点击进 App）
+      // 品牌行（桌面卡片下方名称固定为应用名，品牌做进卡片内）
+      Row({ space: 4 }) {
+        Text('🧮').fontSize(11)
+        Text('百宝计算器')
+          .fontSize(11)
+          .fontColor($r('app.color.text_secondary'))
+        Blank()
+      }
+      .width('100%')
+      .onClick(() => {
+        postCardAction(this, {
+          action: 'router',
+          abilityName: 'EntryAbility',
+          params: { targetTool: 'calculator' }
+        });
+      })
+
+      // 显示区：上行算式（实时），下行结果（边输边算）
       Column({ space: 2 }) {
-        Text(this.history.length > 0 ? this.history : ' ')
-          .fontSize(12)
+        Text(this.topLine())
+          .fontSize(13)
           .fontColor($r('app.color.text_secondary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .textAlign(TextAlign.End)
           .width('100%')
-        Text(this.display)
-          .fontSize(this.display.length > 14 ? 16 : 22)
+        Text(this.liveResult())
+          .fontSize(this.liveResult().length > 14 ? 16 : 22)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
           .maxLines(1)
