@@ -32,9 +32,9 @@ export default class EntryFormAbility extends FormExtensionAbility {
   }
 
   onAddForm(want: Want): formBindingData.FormBindingData {
-    // 计算器卡片纯本地状态，无需绑定数据
+    // 计算器类卡片纯本地状态，无需绑定数据
     const formName = want.parameters?.['ohos.extra.param.key.form_name'] as string;
-    if (formName === 'widget_calc') {
+    if (formName === 'widget_calc' || formName === 'widget_supercalc') {
       return formBindingData.createFormBindingData({});
     }
     // 专注卡片：添加时恢复进行中的专注（若有）
