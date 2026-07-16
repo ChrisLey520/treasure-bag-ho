@@ -1,0 +1,8 @@
+{
+  "modelVersion": "6.0.0",
+  "name": "treasure_bag",
+  "version": "1.0.0",
+  "description": "百宝袋 - 多功能工具箱",
+  "dependencies": {},
+  "devDependencies": {}
+}

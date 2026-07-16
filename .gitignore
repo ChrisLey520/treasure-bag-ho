@@ -1,0 +1,22 @@
+# 构建产物
+/entry/build/
+/build/
+/.hvigor/
+/entry/.preview/
+/.test/
+oh_modules/
+.cxx/
+
+# IDE
+/.idea/
+*.iml
+.DS_Store
+
+# 签名（不入库）
+*.p7b
+*.cer
+*.p12
+/entry/src/main/resources/rawfile/keystore/
+
+# 本地配置
+local.properties
