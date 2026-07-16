@@ -1,3 +1,5 @@
+import { display } from '@kit.ArkUI';
+
 const BG_COLORS: string[] = ['#000000', '#F5576C', '#5B6BF5', '#43E97B', '#FEE140', '#FFFFFF'];
 const TEXT_COLORS: string[] = ['#FFFFFF', '#FFD700', '#00F2FE', '#FF512F', '#1A1D26'];
 
@@ -17,13 +19,24 @@ export struct BannerPage {
     this.stop();
   }
 
+  /** 文本完整宽度（vp）：每个字约占一个 fontSize，再加余量 */
+  textWidth(): number {
+    return (this.text.length + 2) * this.fontSize;
+  }
+
   start(): void {
     this.playing = true;
+    // 真实屏幕宽度（px → vp）
+    try {
+      this.screenW = this.getUIContext().px2vp(display.getDefaultDisplaySync().width);
+    } catch (err) {
+      console.error('get display failed:', JSON.stringify(err));
+    }
     this.offsetX = this.screenW;
     // 简易滚动：定时平移
     this.timerId = setInterval(() => {
       this.offsetX -= this.speed * 3;
-      if (this.offsetX < -this.text.length * this.fontSize) {
+      if (this.offsetX < -this.textWidth()) {
         this.offsetX = this.screenW;
       }
     }, 16);
@@ -47,6 +60,7 @@ export struct BannerPage {
             .fontWeight(FontWeight.Bold)
             .fontColor(TEXT_COLORS[this.textIndex])
             .maxLines(1)
+            .width(this.textWidth())   // 显式给足宽度，避免被屏宽截断
             .translate({ x: this.offsetX })
         }
         .width('100%')
