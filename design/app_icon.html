@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; }
+  body { width: 1024px; height: 1024px; overflow: hidden; }
+</style>
+</head>
+<body>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="36%" r="90%">
+      <stop offset="0%" stop-color="#43307E"/>
+      <stop offset="45%" stop-color="#2C1D5C"/>
+      <stop offset="100%" stop-color="#130C2F"/>
+    </radialGradient>
+
+    <linearGradient id="sheen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.09"/>
+      <stop offset="40%" stop-color="#FFFFFF" stop-opacity="0.02"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <linearGradient id="gold" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#F9E7B3"/>
+      <stop offset="35%" stop-color="#EFC868"/>
+      <stop offset="70%" stop-color="#D9A441"/>
+      <stop offset="100%" stop-color="#B97F2A"/>
+    </linearGradient>
+
+    <!-- 袋身：左上亮、右下暗 -->
+    <linearGradient id="pouch" x1="18%" y1="8%" x2="88%" y2="96%">
+      <stop offset="0%" stop-color="#FBEBBE"/>
+      <stop offset="32%" stop-color="#F0CC74"/>
+      <stop offset="68%" stop-color="#DCA746"/>
+      <stop offset="100%" stop-color="#9E6A1F"/>
+    </linearGradient>
+
+    <!-- 袋口褶皱：略深一档，区分层次 -->
+    <linearGradient id="collar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F4D588"/>
+      <stop offset="100%" stop-color="#C08A2E"/>
+    </linearGradient>
+
+    <radialGradient id="gemGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFF6D8" stop-opacity="0.9"/>
+      <stop offset="45%" stop-color="#FFD976" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#FFD976" stop-opacity="0"/>
+    </radialGradient>
+
+    <filter id="softShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/><feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#sheen)"/>
+  <circle cx="512" cy="490" r="335" fill="none" stroke="#8B6FD8" stroke-opacity="0.13" stroke-width="2"/>
+  <circle cx="512" cy="490" r="400" fill="none" stroke="#8B6FD8" stroke-opacity="0.06" stroke-width="2"/>
+
+  <!-- 袋口宝光 -->
+  <ellipse cx="512" cy="290" rx="190" ry="110" fill="url(#gemGlow)"/>
+
+  <g filter="url(#softShadow)">
+    <!-- 袋身：收腰 → 饱满鼓腹 -->
+    <path d="M420 408
+             C 366 434 300 508 280 600
+             C 252 716 320 850 512 850
+             C 704 850 772 716 744 600
+             C 724 508 658 434 604 408
+             C 576 396 448 396 420 408 Z"
+          fill="url(#pouch)"/>
+
+    <!-- 左侧高光弧 -->
+    <path d="M392 452 C 340 516 310 592 314 668 C 317 738 352 792 410 822
+             C 336 780 296 714 300 640 C 304 566 340 496 392 452 Z"
+          fill="#FFF7DC" opacity="0.5"/>
+
+    <!-- 袋口：外翻短领 + 敞开的椭圆开口（宽口） -->
+    <path d="M368 380
+             C 356 310 420 266 512 266
+             C 604 266 668 310 656 380
+             C 636 416 388 416 368 380 Z"
+          fill="url(#collar)"/>
+    <!-- 开口内部（深色，体现袋子是敞开的） -->
+    <ellipse cx="512" cy="330" rx="118" ry="38" fill="#4A320D"/>
+    <ellipse cx="512" cy="326" rx="118" ry="34" fill="#2E1F06"/>
+
+    <!-- 束口绳 -->
+    <path d="M386 402 C 448 440 576 440 638 402"
+          fill="none" stroke="#7C5417" stroke-width="26" stroke-linecap="round"/>
+    <path d="M386 398 C 448 436 576 436 638 398"
+          fill="none" stroke="url(#gold)" stroke-width="15" stroke-linecap="round"/>
+    <!-- 绳头金珠 -->
+    <circle cx="386" cy="404" r="18" fill="url(#gold)"/>
+    <circle cx="380" cy="398" r="6" fill="#FCF2CE"/>
+    <circle cx="638" cy="404" r="18" fill="url(#gold)"/>
+    <circle cx="632" cy="398" r="6" fill="#FCF2CE"/>
+  </g>
+
+  <!-- 袋口内的宝石群：从开口里探出，底部被袋口遮住 -->
+  <!-- 左红宝石 -->
+  <g filter="url(#glow)">
+    <circle cx="436" cy="300" r="27" fill="#FF7B93"/>
+    <circle cx="429" cy="293" r="9" fill="#FFC9D3"/>
+  </g>
+  <!-- 右翡翠 -->
+  <g filter="url(#glow)">
+    <circle cx="592" cy="304" r="24" fill="#5FE3A1"/>
+    <circle cx="586" cy="298" r="8" fill="#C2F6DE"/>
+  </g>
+  <!-- 金币两枚 -->
+  <ellipse cx="472" cy="322" rx="26" ry="24" fill="url(#gold)"/>
+  <ellipse cx="556" cy="324" rx="24" ry="22" fill="url(#gold)"/>
+  <!-- 中央大钻石（最前） -->
+  <g filter="url(#glow)">
+    <path d="M512 206 L572 266 L512 318 L452 266 Z" fill="#CFE6FF"/>
+    <path d="M512 206 L572 266 L512 284 Z" fill="#F2F9FF"/>
+    <path d="M512 318 L452 266 L512 284 Z" fill="#98C2F4"/>
+  </g>
+  <!-- 开口前沿压在宝石之上，制造"探出"效果 -->
+  <path d="M394 344 C 394 376 630 376 630 344
+           C 630 384 606 402 512 402 C 418 402 394 384 394 344 Z"
+        fill="url(#collar)"/>
+
+  <!-- 袋身鎏金饰线：下摆双弧线 -->
+  <path d="M370 748 C 440 796 584 796 654 748"
+        fill="none" stroke="#7C5417" stroke-width="5" opacity="0.45" stroke-linecap="round"/>
+  <path d="M370 741 C 440 789 584 789 654 741"
+        fill="none" stroke="#FCEFC4" stroke-width="3" opacity="0.6" stroke-linecap="round"/>
+
+  <!-- 星辉 -->
+  <g fill="#F7E7B0">
+    <path d="M198 262 l10 26 26 10 -26 10 -10 26 -10 -26 -26 -10 26 -10 Z" opacity="0.95"/>
+    <path d="M816 218 l8 20 20 8 -20 8 -8 20 -8 -20 -20 -8 20 -8 Z" opacity="0.8"/>
+    <path d="M842 566 l6 16 16 6 -16 6 -6 16 -6 -16 -16 -6 16 -6 Z" opacity="0.6"/>
+    <path d="M172 646 l6 16 16 6 -16 6 -6 16 -6 -16 -16 -6 16 -6 Z" opacity="0.5"/>
+  </g>
+  <circle cx="290" cy="176" r="5" fill="#FFFFFF" opacity="0.7"/>
+  <circle cx="752" cy="336" r="4" fill="#FFFFFF" opacity="0.55"/>
+  <circle cx="704" cy="138" r="3" fill="#FFFFFF" opacity="0.45"/>
+</svg>
+</body>
+</html>
