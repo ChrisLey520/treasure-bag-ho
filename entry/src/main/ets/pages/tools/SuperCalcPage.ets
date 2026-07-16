@@ -35,14 +35,18 @@ const FUNC_KEYS: string[][] = [
   ['', '', '', '', '']
 ];
 
-/** 字母键盘（未知数用 x，其余字母预留） */
+/** 字母键盘：对齐参考 App，只保留常用字母 a-p 两行 */
 const AZ_KEYS: string[][] = [
-  ['a', 'b', 'c', 'd', 'e'],
-  ['f', 'g', 'h', 'i', 'j'],
-  ['k', 'l', 'm', 'n', 'o'],
-  ['p', 'q', 'r', 's', 't'],
-  ['u', 'v', 'w', 'x', 'y'],
-  ['z', '(', ')', '=', ',']
+  ['a', 'b', 'c', 'h', 'k'],
+  ['p', '', '', '', '']
+];
+
+/** a-z 面板下方的常用函数模板（对齐截图） */
+const AZ_TEMPLATES: Template[] = [
+  { label: '一元一次函数', expr: 'y=kx+b' },
+  { label: '反比例函数', expr: 'y=k÷x' },
+  { label: '一元二次函数', expr: 'y=ax^2+bx+c' },
+  { label: '一元二次·顶点式', expr: 'y=a(x−h)^2+k' }
 ];
 
 /** f(x) 模板：分类 + 公式，两列展示，点击整体填入 */
@@ -759,6 +763,42 @@ export struct SuperCalcPage {
                     }
                     .width('100%')
                   }, (row: string[], i: number) => `p${this.panel}r${i}`)
+
+                  if (this.panel === 2) {
+                    // a-z 面板下方：常用函数模板（对齐截图分隔条+两列列表）
+                    Divider()
+                      .strokeWidth(3)
+                      .color('#33888888')
+                      .margin({ top: 4, bottom: 4 })
+                    ForEach(AZ_TEMPLATES, (t: Template) => {
+                      Row() {
+                        Text(t.label)
+                          .fontSize(14)
+                          .fontColor($r('app.color.text_secondary'))
+                          .width('42%')
+                          .textAlign(TextAlign.Center)
+                        Divider()
+                          .vertical(true)
+                          .height(24)
+                        Text(t.expr)
+                          .fontSize(16)
+                          .fontWeight(FontWeight.Medium)
+                          .fontColor($r('app.color.text_primary'))
+                          .layoutWeight(1)
+                          .textAlign(TextAlign.Center)
+                      }
+                      .width('100%')
+                      .padding({ top: 14, bottom: 14 })
+                      .borderRadius(12)
+                      .backgroundColor($r('app.color.bg_card'))
+                      .onClick(() => {
+                        this.expression = t.expr;
+                        this.cursor = t.expr.length;
+                        this.result = '';
+                        this.fracForm = '';
+                      })
+                    }, (t: Template) => t.label)
+                  }
                 }
                 .width('100%')
               }
