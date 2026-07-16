@@ -10,56 +10,60 @@ interface ResultRow {
   value: string;
 }
 
-const SCI_KEYS: string[][] = [
-  ['2nd', 'DEG', '(', ')', '⌫'],
-  ['sin', 'cos', 'tan', 'π', '÷'],
-  ['ln', 'log', '√', '^', '×'],
-  ['7', '8', '9', 'e', '−'],
-  ['4', '5', '6', '!', '+'],
-  ['1', '2', '3', '%', 'ANS'],
-  ['0', '.', 'x', 'C', '=']
+interface Template {
+  label: string;
+  expr: string;
+}
+
+/** 基础键盘（对标超级计算器基础面板） */
+const BASIC_KEYS: string[][] = [
+  ['log', 'ln', '√', '^', '÷'],
+  ['x', '7', '8', '9', '×'],
+  ['π', '4', '5', '6', '−'],
+  ['e', '1', '2', '3', '+'],
+  ['=', '0', '.', '%', 'ANS']
 ];
 
-const SCI_KEYS_2ND: string[][] = [
-  ['2nd', 'DEG', '(', ')', '⌫'],
-  ['asin', 'acos', 'atan', 'π', '÷'],
-  ['ln', 'log', '√', '^', '×'],
-  ['7', '8', '9', 'e', '−'],
-  ['4', '5', '6', '!', '+'],
-  ['1', '2', '3', '%', 'ANS'],
-  ['0', '.', 'x', 'C', '=']
+/** 函数键盘 */
+const FUNC_KEYS: string[][] = [
+  ['sin', 'cos', 'tan', 'π', 'e'],
+  ['asin', 'acos', 'atan', '!', 'abs'],
+  ['ln', 'log', '√', '^', '%'],
+  ['(', ')', 'x', 'ANS', 'DEG']
 ];
 
-/** 方程专用键盘：所有符号按钮化，无需手动输入 */
-const EQ_KEYS: string[][] = [
-  ['x', '=', '(', ')', '⌫'],
-  ['sin', 'cos', 'tan', '√', '÷'],
-  ['7', '8', '9', '^', '×'],
-  ['4', '5', '6', 'π', '−'],
-  ['1', '2', '3', 'ln', '+'],
-  ['0', '.', 'log', 'C', '求解']
+/** f(x) 模板：点击整体替换输入 */
+const TEMPLATES: Template[] = [
+  { label: '一元一次方程', expr: '2x+3=7' },
+  { label: '一元二次方程', expr: 'x^2−3x+2=0' },
+  { label: '黄金分割', expr: 'x^2−x−1=0' },
+  { label: '三角方程', expr: 'sin x=0.5' },
+  { label: '三次方程', expr: 'x^3−3x+1=0' },
+  { label: '复根示例', expr: 'x^2+1=0' },
+  { label: '勾股定理', expr: '√(3^2+4^2)' },
+  { label: '复利 10 年', expr: '(1+0.03)^10' },
+  { label: '阶乘', expr: '10!' },
+  { label: '对数', expr: 'log 1000' }
 ];
 
-const MODES: string[] = ['计算', '绘图', '方程', '统计'];
+const MODES: string[] = ['计算', '绘图', '统计'];
 
 @Component
 export struct SuperCalcPage {
   @State mode: number = 0;
-  // ── 科学计算 ──
+  // ── 计算（表达式 + 光标编辑）──
   @State expression: string = '';
+  @State cursor: number = 0;
   @State result: string = '';
-  @State fracForm: string = '';   // 结果的分数形式（若存在）
+  @State fracForm: string = '';
   @State degMode: boolean = true;
-  @State second: boolean = false;
+  @State panel: number = 0;   // 0 基础 1 函数 2 模板
   @State history: HistoryItem[] = [];
   private ans: number = 0;
   // ── 绘图 ──
   @State plotExpr: string = 'sin x';
   @State plotError: string = '';
   @State plotW: number = 320;
-  // ── 方程 ──
-  @State eqInput: string = 'x^2−x−1=0';
-  @State eqResult: string = '';
   // ── 统计 ──
   @State statInput: string = '';
   @State statRows: ResultRow[] = [];
@@ -68,263 +72,98 @@ export struct SuperCalcPage {
   private settings: RenderingContextSettings = new RenderingContextSettings(true);
   private plotCtx: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
   private readonly PLOT_H: number = 240;
+  private readonly FNS: string[] = ['asin', 'acos', 'atan', 'sin', 'cos', 'tan', 'abs', 'ln', 'log', 'ANS'];
 
-  keys(): string[][] {
-    return this.second ? SCI_KEYS_2ND : SCI_KEYS;
-  }
-
-  // ════════ 科学计算 ════════
-  onKey(k: string): void {
-    if (k === '2nd') {
-      this.second = !this.second;
-      return;
-    }
-    if (k === 'DEG') {
-      this.degMode = !this.degMode;
-      return;
-    }
-    if (k === 'C') {
-      this.expression = '';
-      this.result = '';
-      this.fracForm = '';
-      return;
-    }
-    if (k === '⌫') {
-      const fns: string[] = ['asin', 'acos', 'atan', 'sin', 'cos', 'tan', 'ln', 'log', 'ANS'];
-      let cut = 1;
-      for (const fn of fns) {
-        if (this.expression.endsWith(fn)) {
-          cut = fn.length;
-          break;
-        }
-      }
-      this.expression = this.expression.slice(0, -cut);
-      return;
-    }
-    if (k === '=') {
-      if (this.expression.length === 0) {
-        return;
-      }
-      try {
-        const v = this.parser.parse(this.expression, this.degMode, this.ans);
-        this.result = fmtResult(v);
-        // 分数形式：仅当能表示为"好看"的分数（分母 ≤ 9999）时展示
-        const frac = toFraction(v, 9999);
-        this.fracForm = frac !== undefined ? frac : '';
-        this.ans = v;
-        this.history = [{ expr: this.expression, result: this.result } as HistoryItem,
-          ...this.history].slice(0, 20);
-      } catch (err) {
-        this.result = (err as Error).message;
-        this.fracForm = '';
-      }
-      return;
-    }
-    this.expression += k;
+  // ════════ 光标编辑 ════════
+  insertText(s: string): void {
+    this.expression = this.expression.substring(0, this.cursor) + s + this.expression.substring(this.cursor);
+    this.cursor += s.length;
     this.result = '';
     this.fracForm = '';
   }
 
-  keyBg(k: string): ResourceColor {
-    if (k === '=' || k === '求解') {
-      return $r('app.color.accent');
-    }
-    if (k === 'C') {
-      return '#33F5576C';
-    }
-    if (k === '2nd') {
-      return this.second ? $r('app.color.accent') : '#2E3140';
-    }
-    if ((k >= '0' && k <= '9') || k === '.') {
-      return $r('app.color.bg_card');
-    }
-    return '#2E3140';
-  }
-
-  keyFg(k: string): ResourceColor {
-    if (k === '=' || k === '求解' || (k === '2nd' && this.second)) {
-      return Color.White;
-    }
-    if (k === 'C') {
-      return '#F5576C';
-    }
-    if ((k >= '0' && k <= '9') || k === '.') {
-      return $r('app.color.text_primary');
-    }
-    return '#7B88FF';
-  }
-
-  keyLabel(k: string): string {
-    if (k === 'DEG') {
-      return this.degMode ? 'DEG' : 'RAD';
-    }
-    return k;
-  }
-
-  // ════════ 函数绘图 ════════
-  drawPlot(): void {
-    const c = this.plotCtx;
-    const W = this.plotW;
-    const H = this.PLOT_H;
-    c.clearRect(0, 0, W, H);
-    this.plotError = '';
-
-    const X_MIN = -10;
-    const X_MAX = 10;
-    const expr = normalizeFx(this.plotExpr);
-
-    const N = 300;
-    const xs: number[] = [];
-    const ys: number[] = [];
-    let yMin = Infinity;
-    let yMax = -Infinity;
-    let valid = 0;
-    if (expr.length > 0) {
-      for (let i = 0; i <= N; i++) {
-        const x = X_MIN + (X_MAX - X_MIN) * i / N;
-        let y = NaN;
-        try {
-          y = this.parser.evalWithX(expr, x, this.degMode);
-        } catch (err) {
-          y = NaN;
-        }
-        xs.push(x);
-        ys.push(y);
-        if (!isNaN(y) && isFinite(y)) {
-          valid += 1;
-          yMin = Math.min(yMin, y);
-          yMax = Math.max(yMax, y);
-        }
-      }
-    }
-    if (valid === 0) {
-      yMin = -5;
-      yMax = 5;
-      if (expr.length > 0) {
-        this.plotError = '表达式无法求值（变量用 x，如 x^2−2x+1）';
-      }
-    } else {
-      if (yMax - yMin < 1e-9) {
-        yMin -= 1;
-        yMax += 1;
-      }
-      const pad = (yMax - yMin) * 0.1;
-      yMin -= pad;
-      yMax += pad;
-      if (yMax > 50) { yMax = 50; }
-      if (yMin < -50) { yMin = -50; }
-    }
-
-    const px = (x: number): number => (x - X_MIN) / (X_MAX - X_MIN) * W;
-    const py = (y: number): number => H - (y - yMin) / (yMax - yMin) * H;
-
-    // 网格
-    c.strokeStyle = '#33888888';
-    c.lineWidth = 0.5;
-    for (let gx = Math.ceil(X_MIN / 2) * 2; gx <= X_MAX; gx += 2) {
-      c.beginPath();
-      c.moveTo(px(gx), 0);
-      c.lineTo(px(gx), H);
-      c.stroke();
-    }
-    const gStep = Math.pow(10, Math.floor(Math.log10(yMax - yMin))) / 2;
-    for (let gy = Math.ceil(yMin / gStep) * gStep; gy <= yMax; gy += gStep) {
-      c.beginPath();
-      c.moveTo(0, py(gy));
-      c.lineTo(W, py(gy));
-      c.stroke();
-    }
-    // x 轴
-    c.strokeStyle = '#8A8F9C';
-    c.lineWidth = 1.2;
-    if (yMin <= 0 && yMax >= 0) {
-      c.beginPath();
-      c.moveTo(0, py(0));
-      c.lineTo(W, py(0));
-      c.stroke();
-    } else {
-      const edgeY = yMin > 0 ? H - 1 : 1;
-      c.setLineDash([4, 4]);
-      c.beginPath();
-      c.moveTo(0, edgeY);
-      c.lineTo(W, edgeY);
-      c.stroke();
-      c.setLineDash([]);
-    }
-    // y 轴
-    c.beginPath();
-    c.moveTo(px(0), 0);
-    c.lineTo(px(0), H);
-    c.stroke();
-    // 曲线
-    if (valid > 0) {
-      c.strokeStyle = '#7B88FF';
-      c.lineWidth = 2;
-      c.beginPath();
-      let penDown = false;
-      for (let i = 0; i <= N; i++) {
-        const y = ys[i];
-        if (isNaN(y) || !isFinite(y) || y < yMin || y > yMax) {
-          penDown = false;
-          continue;
-        }
-        if (!penDown) {
-          c.moveTo(px(xs[i]), py(y));
-          penDown = true;
-        } else {
-          c.lineTo(px(xs[i]), py(y));
-        }
-      }
-      c.stroke();
-    }
-    c.fillStyle = '#8A8F9C';
-    c.font = '10vp sans-serif';
-    c.fillText(`y∈[${fmtResult(parseFloat(yMin.toFixed(2)))}, ${fmtResult(parseFloat(yMax.toFixed(2)))}]`, 6, 14);
-    c.fillText('x∈[-10, 10]', 6, H - 6);
-  }
-
-  // ════════ 方程求解 ════════
-  onEqKey(k: string): void {
-    if (k === 'C') {
-      this.eqInput = '';
-      this.eqResult = '';
+  backspace(): void {
+    if (this.cursor === 0) {
       return;
     }
-    if (k === '⌫') {
-      const fns: string[] = ['sin', 'cos', 'tan', 'ln', 'log'];
-      let cut = 1;
-      for (const fn of fns) {
-        if (this.eqInput.endsWith(fn)) {
-          cut = fn.length;
+    const before = this.expression.substring(0, this.cursor);
+    let cut = 1;
+    for (const fn of this.FNS) {
+      if (before.endsWith(fn)) {
+        cut = fn.length;
+        break;
+      }
+    }
+    this.expression = before.substring(0, before.length - cut) + this.expression.substring(this.cursor);
+    this.cursor -= cut;
+    this.result = '';
+    this.fracForm = '';
+  }
+
+  moveCursor(delta: number): void {
+    let target = this.cursor + delta;
+    // 跨函数名整体跳过
+    if (delta < 0) {
+      const before = this.expression.substring(0, this.cursor);
+      for (const fn of this.FNS) {
+        if (before.endsWith(fn)) {
+          target = this.cursor - fn.length;
           break;
         }
       }
-      this.eqInput = this.eqInput.slice(0, -cut);
-      return;
+    } else {
+      const after = this.expression.substring(this.cursor);
+      for (const fn of this.FNS) {
+        if (after.startsWith(fn)) {
+          target = this.cursor + fn.length;
+          break;
+        }
+      }
     }
-    if (k === '求解') {
-      this.solveEquation();
-      return;
-    }
-    this.eqInput += k;
-    this.eqResult = '';
+    this.cursor = Math.max(0, Math.min(this.expression.length, target));
   }
 
-  /**
-   * 通用方程求解：
-   * 1) 移项为 f(x) = 0
-   * 2) 多项式检测（差分法）：一次/二次给精确解（含复根）
-   * 3) 其余数值求根：[-10,10] 扫描 + 二分
-   */
-  solveEquation(): void {
-    if (this.eqInput.trim().length === 0) {
-      this.eqResult = '请输入方程';
+  clearAll(): void {
+    this.expression = '';
+    this.cursor = 0;
+    this.result = '';
+    this.fracForm = '';
+  }
+
+  // ════════ 执行：含 = 求解方程，否则求值 ════════
+  runCalc(): void {
+    const s = this.expression.trim();
+    if (s.length === 0) {
       return;
     }
-    const fx = equationToFx(this.eqInput);
+    // y= / f(x)= 前缀只是函数写法，不当方程；其余含 = 走方程求解
+    const eqIdx = s.indexOf('=');
+    const lhsKey = eqIdx >= 0 ? s.substring(0, eqIdx).replace(/\s/g, '').toLowerCase() : '';
+    const isEquation = eqIdx >= 0 && lhsKey !== 'y' && lhsKey !== 'f(x)' && lhsKey !== 'fx' && lhsKey !== 'f';
+
+    if (isEquation || (eqIdx < 0 && s.includes('x'))) {
+      this.result = this.solveEquation(s);
+      this.fracForm = '';
+      this.history = [{ expr: s, result: '已求解' } as HistoryItem, ...this.history].slice(0, 20);
+      return;
+    }
+    try {
+      const v = this.parser.parse(normalizeFx(s), this.degMode, this.ans);
+      this.result = `= ${fmtResult(v)}`;
+      const frac = toFraction(v, 9999);
+      this.fracForm = frac !== undefined ? frac : '';
+      this.ans = v;
+      this.history = [{ expr: s, result: fmtResult(v) } as HistoryItem, ...this.history].slice(0, 20);
+    } catch (err) {
+      this.result = (err as Error).message;
+      this.fracForm = '';
+    }
+  }
+
+  solveEquation(input: string): string {
+    const fx = equationToFx(input);
     const f = (x: number): number => this.parser.evalWithX(fx, x, this.degMode);
 
-    // 试采样，确认表达式可求值
     let ok = 0;
     const probe: number[] = [0, 1, -1, 2, -2, 3, 0.5];
     const pv: number[] = [];
@@ -340,59 +179,49 @@ export struct SuperCalcPage {
       }
     }
     if (ok === 0) {
-      this.eqResult = '方程无法求值，请检查输入（未知数用 x）';
-      return;
+      return '方程无法求值，请检查输入（未知数用 x）';
     }
-
-    // 多项式检测：f(0),f(1),f(-1),f(2),f(3) 全部有效时试拟合二次
     if (!isNaN(pv[0]) && !isNaN(pv[1]) && !isNaN(pv[2]) && !isNaN(pv[3]) && !isNaN(pv[5])) {
-      const c = pv[0];                       // f(0)
-      const a = (pv[1] + pv[2]) / 2 - c;     // (f(1)+f(-1))/2 − f(0)
-      const b = (pv[1] - pv[2]) / 2;         // (f(1)−f(-1))/2
-      // 验证拟合（x=2、x=3 两点）
+      const c = pv[0];
+      const a = (pv[1] + pv[2]) / 2 - c;
+      const b = (pv[1] - pv[2]) / 2;
       const fit2 = a * 4 + b * 2 + c;
       const fit3 = a * 9 + b * 3 + c;
       const scale = Math.max(1, Math.abs(pv[3]), Math.abs(pv[5]));
       if (Math.abs(fit2 - pv[3]) < 1e-9 * scale && Math.abs(fit3 - pv[5]) < 1e-9 * scale) {
-        this.solvePolynomial(a, b, c);
-        return;
+        return this.solvePolynomial(a, b, c);
       }
     }
-    // 非多项式：数值求根
-    this.solveNumeric(f);
+    return this.solveNumeric(f);
   }
 
-  /** 一次/二次精确解（含复根、分数形式） */
-  solvePolynomial(a: number, b: number, c: number): void {
+  solvePolynomial(a: number, b: number, c: number): string {
     const withFrac = (v: number): string => {
       const fr = toFraction(v, 9999);
       return fr !== undefined ? `${fmtResult(v)}（${fr}）` : fmtResult(v);
     };
     if (Math.abs(a) < 1e-12) {
       if (Math.abs(b) < 1e-12) {
-        this.eqResult = Math.abs(c) < 1e-12 ? '恒等式：x 为任意数' : '矛盾式：无解';
-        return;
+        return Math.abs(c) < 1e-12 ? '恒等式：x 为任意数' : '矛盾式：无解';
       }
-      this.eqResult = `一次方程 ${fmtResult(b)}x + ${fmtResult(c)} = 0\n\nx = ${withFrac(-c / b)}`;
-      return;
+      return `一次方程\nx = ${withFrac(-c / b)}`;
     }
     const d = b * b - 4 * a * c;
-    const head = `二次方程 a=${fmtResult(a)}, b=${fmtResult(b)}, c=${fmtResult(c)}\nΔ = ${fmtResult(d)}`;
+    const head = `二次方程，Δ = ${fmtResult(d)}`;
     if (d > 1e-12) {
       const x1 = (-b + Math.sqrt(d)) / (2 * a);
       const x2 = (-b - Math.sqrt(d)) / (2 * a);
-      this.eqResult = `${head} > 0，两个实根\n\nx₁ = ${withFrac(x1)}\nx₂ = ${withFrac(x2)}`;
-    } else if (Math.abs(d) <= 1e-12) {
-      this.eqResult = `${head} = 0，重根\n\nx = ${withFrac(-b / (2 * a))}`;
-    } else {
-      const re = fmtResult(-b / (2 * a));
-      const im = fmtResult(Math.sqrt(-d) / (2 * Math.abs(a)));
-      this.eqResult = `${head} < 0，共轭复根\n\nx₁ = ${re} + ${im}i\nx₂ = ${re} − ${im}i`;
+      return `${head} > 0\nx₁ = ${withFrac(x1)}\nx₂ = ${withFrac(x2)}`;
     }
+    if (Math.abs(d) <= 1e-12) {
+      return `${head} = 0，重根\nx = ${withFrac(-b / (2 * a))}`;
+    }
+    const re = fmtResult(-b / (2 * a));
+    const im = fmtResult(Math.sqrt(-d) / (2 * Math.abs(a)));
+    return `${head} < 0，共轭复根\nx₁ = ${re} + ${im}i\nx₂ = ${re} − ${im}i`;
   }
 
-  /** 数值求根：[-10,10] 扫描变号区间 + 二分 */
-  solveNumeric(f: (x: number) => number): void {
+  solveNumeric(f: (x: number) => number): string {
     const roots: number[] = [];
     const N = 400;
     const X_MIN = -10;
@@ -451,20 +280,167 @@ export struct SuperCalcPage {
       }
     }
     if (uniq.length === 0) {
-      this.eqResult = '数值求解：在 [-10, 10] 内未找到实根\n（不排除区间外的根或偶重根）';
-    } else {
-      const parts: string[] = [];
-      for (let i = 0; i < uniq.length; i++) {
-        const clean = Math.abs(uniq[i]) < 1e-10 ? 0 : uniq[i];
-        const v = parseFloat(clean.toPrecision(8));
-        const fr = toFraction(v, 9999);
-        parts.push(`x${i + 1} = ${fmtResult(v)}${fr !== undefined ? `（${fr}）` : ''}`);
-      }
-      this.eqResult = `数值求解，找到 ${uniq.length} 个根：\n\n${parts.join('\n')}`;
+      return '数值求解：[-10, 10] 内未找到实根\n（不排除区间外的根或偶重根）';
     }
+    const parts: string[] = [];
+    for (let i = 0; i < uniq.length; i++) {
+      const clean = Math.abs(uniq[i]) < 1e-10 ? 0 : uniq[i];
+      const v = parseFloat(clean.toPrecision(8));
+      const fr = toFraction(v, 9999);
+      parts.push(`x${i + 1} = ${fmtResult(v)}${fr !== undefined ? `（${fr}）` : ''}`);
+    }
+    return `数值求解，${uniq.length} 个根：\n${parts.join('\n')}`;
   }
 
-  // ════════ 统计分析 ════════
+  // ════════ 键盘按键 ════════
+  onKey(k: string): void {
+    if (k === 'DEG') {
+      this.degMode = !this.degMode;
+      return;
+    }
+    this.insertText(k);
+  }
+
+  keyBg(k: string): ResourceColor {
+    if ((k >= '0' && k <= '9') || k === '.') {
+      return $r('app.color.bg_card');
+    }
+    return '#2E3140';
+  }
+
+  keyFg(k: string): ResourceColor {
+    if ((k >= '0' && k <= '9') || k === '.') {
+      return $r('app.color.text_primary');
+    }
+    return '#7B88FF';
+  }
+
+  keyLabel(k: string): string {
+    if (k === 'DEG') {
+      return this.degMode ? 'DEG' : 'RAD';
+    }
+    return k;
+  }
+
+  // ════════ 绘图（与前版一致）════════
+  drawPlot(): void {
+    const c = this.plotCtx;
+    const W = this.plotW;
+    const H = this.PLOT_H;
+    c.clearRect(0, 0, W, H);
+    this.plotError = '';
+
+    const X_MIN = -10;
+    const X_MAX = 10;
+    const expr = normalizeFx(this.plotExpr);
+
+    const N = 300;
+    const xs: number[] = [];
+    const ys: number[] = [];
+    let yMin = Infinity;
+    let yMax = -Infinity;
+    let valid = 0;
+    if (expr.length > 0) {
+      for (let i = 0; i <= N; i++) {
+        const x = X_MIN + (X_MAX - X_MIN) * i / N;
+        let y = NaN;
+        try {
+          y = this.parser.evalWithX(expr, x, this.degMode);
+        } catch (err) {
+          y = NaN;
+        }
+        xs.push(x);
+        ys.push(y);
+        if (!isNaN(y) && isFinite(y)) {
+          valid += 1;
+          yMin = Math.min(yMin, y);
+          yMax = Math.max(yMax, y);
+        }
+      }
+    }
+    if (valid === 0) {
+      yMin = -5;
+      yMax = 5;
+      if (expr.length > 0) {
+        this.plotError = '表达式无法求值（变量用 x，如 x^2−2x+1）';
+      }
+    } else {
+      if (yMax - yMin < 1e-9) {
+        yMin -= 1;
+        yMax += 1;
+      }
+      const pad = (yMax - yMin) * 0.1;
+      yMin -= pad;
+      yMax += pad;
+      if (yMax > 50) { yMax = 50; }
+      if (yMin < -50) { yMin = -50; }
+    }
+
+    const px = (x: number): number => (x - X_MIN) / (X_MAX - X_MIN) * W;
+    const py = (y: number): number => H - (y - yMin) / (yMax - yMin) * H;
+
+    c.strokeStyle = '#33888888';
+    c.lineWidth = 0.5;
+    for (let gx = Math.ceil(X_MIN / 2) * 2; gx <= X_MAX; gx += 2) {
+      c.beginPath();
+      c.moveTo(px(gx), 0);
+      c.lineTo(px(gx), H);
+      c.stroke();
+    }
+    const gStep = Math.pow(10, Math.floor(Math.log10(yMax - yMin))) / 2;
+    for (let gy = Math.ceil(yMin / gStep) * gStep; gy <= yMax; gy += gStep) {
+      c.beginPath();
+      c.moveTo(0, py(gy));
+      c.lineTo(W, py(gy));
+      c.stroke();
+    }
+    c.strokeStyle = '#8A8F9C';
+    c.lineWidth = 1.2;
+    if (yMin <= 0 && yMax >= 0) {
+      c.beginPath();
+      c.moveTo(0, py(0));
+      c.lineTo(W, py(0));
+      c.stroke();
+    } else {
+      const edgeY = yMin > 0 ? H - 1 : 1;
+      c.setLineDash([4, 4]);
+      c.beginPath();
+      c.moveTo(0, edgeY);
+      c.lineTo(W, edgeY);
+      c.stroke();
+      c.setLineDash([]);
+    }
+    c.beginPath();
+    c.moveTo(px(0), 0);
+    c.lineTo(px(0), H);
+    c.stroke();
+    if (valid > 0) {
+      c.strokeStyle = '#7B88FF';
+      c.lineWidth = 2;
+      c.beginPath();
+      let penDown = false;
+      for (let i = 0; i <= N; i++) {
+        const y = ys[i];
+        if (isNaN(y) || !isFinite(y) || y < yMin || y > yMax) {
+          penDown = false;
+          continue;
+        }
+        if (!penDown) {
+          c.moveTo(px(xs[i]), py(y));
+          penDown = true;
+        } else {
+          c.lineTo(px(xs[i]), py(y));
+        }
+      }
+      c.stroke();
+    }
+    c.fillStyle = '#8A8F9C';
+    c.font = '10vp sans-serif';
+    c.fillText(`y∈[${fmtResult(parseFloat(yMin.toFixed(2)))}, ${fmtResult(parseFloat(yMax.toFixed(2)))}]`, 6, 14);
+    c.fillText('x∈[-10, 10]', 6, H - 6);
+  }
+
+  // ════════ 统计（与前版一致）════════
   calcStats(): void {
     const parts = this.statInput.split(/[,，\s]+/);
     const nums: number[] = [];
@@ -511,36 +487,27 @@ export struct SuperCalcPage {
     ];
   }
 
+  /** 侧边栏圆形按钮 */
   @Builder
-  keyboard(layout: string[][], onPress: (k: string) => void) {
-    Column({ space: 6 }) {
-      ForEach(layout, (row: string[]) => {
-        Row({ space: 6 }) {
-          ForEach(row, (k: string) => {
-            Text(this.keyLabel(k))
-              .fontSize(k.length > 2 ? 14 : 18)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(this.keyFg(k))
-              .textAlign(TextAlign.Center)
-              .layoutWeight(1)
-              .height('100%')
-              .borderRadius(12)
-              .backgroundColor(this.keyBg(k))
-              .onClick(() => onPress(k))
-          }, (k: string) => k)
-        }
-        .width('100%')
-        .layoutWeight(1)
-      }, (row: string[], i: number) => `r${i}${this.second}`)
-    }
-    .layoutWeight(1)
-    .width('100%')
+  sideButton(label: string, idx: number) {
+    Text(label)
+      .fontSize(label.length > 3 ? 9 : 13)
+      .fontWeight(FontWeight.Bold)
+      .fontColor(this.panel === idx ? Color.White : $r('app.color.text_secondary'))
+      .textAlign(TextAlign.Center)
+      .width(42)
+      .height(42)
+      .borderRadius(21)
+      .backgroundColor(this.panel === idx ? $r('app.color.accent') : $r('app.color.bg_card'))
+      .onClick(() => {
+        this.panel = idx;
+      })
   }
 
   build() {
     NavDestination() {
-      Column({ space: 10 }) {
-        // 模式切换
+      Column({ space: 8 }) {
+        // 模式 Tab
         Row({ space: 8 }) {
           ForEach(MODES, (label: string, i: number) => {
             Text(label)
@@ -560,20 +527,21 @@ export struct SuperCalcPage {
         }
 
         if (this.mode === 0) {
-          // ── 科学计算 ──
-          Column({ space: 4 }) {
+          // ══ 显示区：带光标的表达式 + 结果 ══
+          Column({ space: 6 }) {
             Scroll() {
               Column({ space: 2 }) {
                 ForEach(this.history, (h: HistoryItem) => {
-                  Text(`${h.expr} = ${h.result}`)
-                    .fontSize(12)
+                  Text(`${h.expr}  →  ${h.result}`)
+                    .fontSize(11)
                     .fontColor($r('app.color.text_secondary'))
                     .maxLines(1)
                     .textOverflow({ overflow: TextOverflow.Ellipsis })
                     .width('100%')
                     .textAlign(TextAlign.End)
                     .onClick(() => {
-                      this.expression = h.result;
+                      this.expression = h.expr;
+                      this.cursor = h.expr.length;
                       this.result = '';
                       this.fracForm = '';
                     })
@@ -584,32 +552,161 @@ export struct SuperCalcPage {
             .scrollBar(BarState.Off)
             .align(Alignment.BottomEnd)
 
-            Text(this.expression.length > 0 ? this.expression : '0')
-              .fontSize(this.expression.length > 18 ? 20 : 26)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('app.color.text_primary'))
-              .maxLines(2)
-              .textAlign(TextAlign.End)
-              .width('100%')
-            if (this.result.length > 0) {
-              Text(`= ${this.result}${this.fracForm.length > 0 ? `  =  ${this.fracForm}` : ''}`)
-                .fontSize(this.fracForm.length > 0 ? 24 : 30)
+            // 表达式 + 光标
+            Text() {
+              if (this.expression.length === 0) {
+                Span('输入算式或方程…')
+                  .fontSize(16)
+                  .fontColor($r('app.color.text_secondary'))
+              } else {
+                Span(this.expression.substring(0, this.cursor))
+                  .fontSize(24)
+                  .fontColor($r('app.color.text_primary'))
+              }
+              Span('❘')
+                .fontSize(24)
                 .fontWeight(FontWeight.Bold)
                 .fontColor($r('app.color.accent'))
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
+              Span(this.expression.substring(this.cursor))
+                .fontSize(24)
+                .fontColor($r('app.color.text_primary'))
+            }
+            .textAlign(TextAlign.End)
+            .maxLines(2)
+            .width('100%')
+
+            if (this.result.length > 0) {
+              Text(`${this.result}${this.fracForm.length > 0 ? `  =  ${this.fracForm}` : ''}`)
+                .fontSize(this.result.includes('\n') ? 15 : 24)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.accent'))
+                .lineHeight(this.result.includes('\n') ? 24 : 30)
+                .maxLines(4)
                 .textAlign(TextAlign.End)
                 .width('100%')
             }
           }
           .width('100%')
-          .height(160)
+          .height(190)
           .padding(14)
           .borderRadius(16)
           .backgroundColor($r('app.color.bg_card'))
           .alignItems(HorizontalAlign.End)
 
-          this.keyboard(this.keys(), (k) => this.onKey(k))
+          // ══ 编辑工具条：清空 ◀ ▶ ⌫ ＝ ══
+          Row({ space: 8 }) {
+            Text('C')
+              .fontSize(17).fontWeight(FontWeight.Bold)
+              .fontColor('#F5576C')
+              .textAlign(TextAlign.Center)
+              .layoutWeight(1).height(42)
+              .borderRadius(12)
+              .backgroundColor('#33F5576C')
+              .onClick(() => this.clearAll())
+            Text('◀')
+              .fontSize(16)
+              .fontColor($r('app.color.text_primary'))
+              .textAlign(TextAlign.Center)
+              .layoutWeight(1).height(42)
+              .borderRadius(12)
+              .backgroundColor($r('app.color.bg_card'))
+              .onClick(() => this.moveCursor(-1))
+            Text('▶')
+              .fontSize(16)
+              .fontColor($r('app.color.text_primary'))
+              .textAlign(TextAlign.Center)
+              .layoutWeight(1).height(42)
+              .borderRadius(12)
+              .backgroundColor($r('app.color.bg_card'))
+              .onClick(() => this.moveCursor(1))
+            Text('⌫')
+              .fontSize(17)
+              .fontColor('#7B88FF')
+              .textAlign(TextAlign.Center)
+              .layoutWeight(1).height(42)
+              .borderRadius(12)
+              .backgroundColor('#2E3140')
+              .onClick(() => this.backspace())
+            Text('＝')
+              .fontSize(18).fontWeight(FontWeight.Bold)
+              .fontColor(Color.White)
+              .textAlign(TextAlign.Center)
+              .layoutWeight(2).height(42)
+              .borderRadius(12)
+              .backgroundColor($r('app.color.accent'))
+              .onClick(() => this.runCalc())
+          }
+          .width('100%')
+
+          // ══ 侧边栏 + 键盘面板 ══
+          Row({ space: 8 }) {
+            Column({ space: 10 }) {
+              this.sideButton('+−×÷', 0)
+              this.sideButton('f', 1)
+              this.sideButton('f(x)', 2)
+              Blank()
+            }
+            .width(50)
+            .height('100%')
+
+            if (this.panel === 0 || this.panel === 1) {
+              Column({ space: 6 }) {
+                ForEach(this.panel === 0 ? BASIC_KEYS : FUNC_KEYS, (row: string[]) => {
+                  Row({ space: 6 }) {
+                    ForEach(row, (k: string) => {
+                      Text(this.keyLabel(k))
+                        .fontSize(k.length > 2 ? 13 : 18)
+                        .fontWeight(FontWeight.Medium)
+                        .fontColor(this.keyFg(k))
+                        .textAlign(TextAlign.Center)
+                        .layoutWeight(1)
+                        .height('100%')
+                        .borderRadius(12)
+                        .backgroundColor(this.keyBg(k))
+                        .onClick(() => this.onKey(k))
+                    }, (k: string) => k)
+                  }
+                  .width('100%')
+                  .layoutWeight(1)
+                }, (row: string[], i: number) => `p${this.panel}r${i}`)
+              }
+              .layoutWeight(1)
+              .height('100%')
+            } else {
+              // f(x) 模板列表
+              List({ space: 6 }) {
+                ForEach(TEMPLATES, (t: Template) => {
+                  ListItem() {
+                    Row() {
+                      Text(t.label)
+                        .fontSize(13)
+                        .fontColor($r('app.color.text_secondary'))
+                      Blank()
+                      Text(t.expr)
+                        .fontSize(15)
+                        .fontWeight(FontWeight.Medium)
+                        .fontColor($r('app.color.text_primary'))
+                    }
+                    .width('100%')
+                    .padding({ top: 12, bottom: 12, left: 14, right: 14 })
+                    .borderRadius(12)
+                    .backgroundColor($r('app.color.bg_card'))
+                    .onClick(() => {
+                      this.expression = t.expr;
+                      this.cursor = t.expr.length;
+                      this.result = '';
+                      this.fracForm = '';
+                    })
+                  }
+                }, (t: Template) => t.label)
+              }
+              .layoutWeight(1)
+              .height('100%')
+              .scrollBar(BarState.Off)
+            }
+          }
+          .layoutWeight(1)
+          .width('100%')
         } else if (this.mode === 1) {
           // ── 函数绘图 ──
           Scroll() {
@@ -684,46 +781,6 @@ export struct SuperCalcPage {
           }
           .layoutWeight(1)
           .scrollBar(BarState.Off)
-        } else if (this.mode === 2) {
-          // ── 方程求解：显示区 + 结果 + 专用键盘 ──
-          Column({ space: 4 }) {
-            Text(this.eqInput.length > 0 ? this.eqInput : '输入方程，如 x^2−x−1=0')
-              .fontSize(this.eqInput.length > 18 ? 18 : 24)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(this.eqInput.length > 0 ? $r('app.color.text_primary') : $r('app.color.text_secondary'))
-              .maxLines(2)
-              .textAlign(TextAlign.End)
-              .width('100%')
-          }
-          .width('100%')
-          .padding(14)
-          .borderRadius(16)
-          .backgroundColor($r('app.color.bg_card'))
-          .alignItems(HorizontalAlign.End)
-
-          if (this.eqResult.length > 0) {
-            Scroll() {
-              Text(this.eqResult)
-                .fontSize(15)
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('app.color.text_primary'))
-                .lineHeight(24)
-                .width('100%')
-            }
-            .width('100%')
-            .constraintSize({ maxHeight: 150 })
-            .padding(14)
-            .borderRadius(16)
-            .backgroundColor($r('app.color.bg_card'))
-            .scrollBar(BarState.Off)
-          } else {
-            Text('支持任意一元方程：二次以内给精确解（含复根与分数），\n其余自动数值求根；含 = 自动移项，不写 = 视为 f(x)=0')
-              .fontSize(11)
-              .fontColor($r('app.color.text_secondary'))
-              .width('100%')
-          }
-
-          this.keyboard(EQ_KEYS, (k) => this.onEqKey(k))
         } else {
           // ── 统计分析 ──
           Scroll() {
