@@ -179,10 +179,20 @@ struct CalcCard {
   build() {
     Column({ space: 6 }) {
       // 品牌行（桌面卡片下方名称固定为应用名，品牌做进卡片内）
-      Row({ space: 4 }) {
-        Text('🧮').fontSize(11)
+      Row({ space: 6 }) {
+        // 徽标：主题渐变圆角方块 + 等号
+        Text('＝')
+          .fontSize(10)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(Color.White)
+          .textAlign(TextAlign.Center)
+          .width(16)
+          .height(16)
+          .borderRadius(5)
+          .linearGradient({ angle: 135, colors: [['#5B6BF5', 0], ['#8B5CF6', 1]] })
         Text('百宝计算器')
           .fontSize(11)
+          .fontWeight(FontWeight.Medium)
           .fontColor($r('app.color.text_secondary'))
         Blank()
       }
