@@ -87,6 +87,7 @@ export struct SuperCalcPage {
   @State statRows: ResultRow[] = [];
 
   private parser: SciParser = new SciParser();
+  private lastSpanTap: number = 0;
   private settings: RenderingContextSettings = new RenderingContextSettings(true);
   private plotCtx: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
   private readonly PLOT_H: number = 240;
@@ -95,10 +96,40 @@ export struct SuperCalcPage {
 
   // ════════ 光标编辑 ════════
   insertText(s: string): void {
-    this.expression = this.expression.substring(0, this.cursor) + s + this.expression.substring(this.cursor);
+    // 光标停在占位块 □ 上时，输入直接替换该块
+    let after = this.expression.substring(this.cursor);
+    if (after.startsWith('□')) {
+      after = after.substring(1);
+    }
+    this.expression = this.expression.substring(0, this.cursor) + s + after;
     this.cursor += s.length;
     this.result = '';
     this.fracForm = '';
+  }
+
+  /** 插入含 □ 占位块的模板，光标落在第一个 □ 上 */
+  insertTemplate(s: string): void {
+    let after = this.expression.substring(this.cursor);
+    if (after.startsWith('□')) {
+      after = after.substring(1);
+    }
+    const start = this.cursor;
+    this.expression = this.expression.substring(0, start) + s + after;
+    const boxIdx = s.indexOf('□');
+    this.cursor = boxIdx >= 0 ? start + boxIdx : start + s.length;
+    this.result = '';
+    this.fracForm = '';
+  }
+
+  /** 光标前是否已有可作为左操作数的内容（决定 ^ ! ÷ 是否补前置占位块） */
+  private hasOperandBefore(): boolean {
+    if (this.cursor === 0) {
+      return false;
+    }
+    const ch = this.expression[this.cursor - 1];
+    return (ch >= '0' && ch <= '9') || ch === ')' || ch === 'x' || ch === 'y' || ch === 'z' ||
+      ch === 'π' || ch === 'e' || ch === 'i' || ch === '!' || ch === '%' || ch === '□' ||
+      ch === '°' || ch === '′' || ch === '″' || ch === '.';
   }
 
   backspace(): void {
@@ -153,6 +184,13 @@ export struct SuperCalcPage {
   runCalc(): void {
     const s = this.expression.trim();
     if (s.length === 0) {
+      return;
+    }
+    if (s.includes('□')) {
+      const idx = this.expression.indexOf('□');
+      this.cursor = idx;
+      this.result = '请先填写高亮的参数块';
+      this.fracForm = '';
       return;
     }
     // y= / f(x)= 前缀只是函数写法，不当方程；其余含 = 走方程求解
@@ -320,29 +358,41 @@ export struct SuperCalcPage {
       this.degMode = !this.degMode;
       return;
     }
-    // 模板键 → 文本形式
+    // 模板键 → 插入 □ 占位块，光标落在首个 □（输入即替换）
     if (k === 'log□') {
-      this.insertText('log(');   // 支持 log(x) 与 log(底,真数)
+      this.insertTemplate('log(□,□)');
       return;
     }
     if (k === '□^□') {
-      this.insertText('^');
+      if (this.hasOperandBefore()) {
+        this.insertTemplate('^□');
+      } else {
+        this.insertTemplate('□^□');
+      }
       return;
     }
     if (k === '√□') {
-      this.insertText('√');
+      this.insertTemplate('√□');
       return;
     }
     if (k === '□/□') {
-      this.insertText('÷');
+      if (this.hasOperandBefore()) {
+        this.insertTemplate('÷□');
+      } else {
+        this.insertTemplate('□÷□');
+      }
       return;
     }
     if (k === 'log₂') {
-      this.insertText('log2');
+      this.insertTemplate('log2(□)');
       return;
     }
     if (k === 'log₁₀') {
-      this.insertText('log');
+      this.insertTemplate('log(□)');
+      return;
+    }
+    if (k === 'ln') {
+      this.insertTemplate('ln(□)');
       return;
     }
     if (k === '′″') {
@@ -356,27 +406,35 @@ export struct SuperCalcPage {
     }
     // f 面板模板键
     if (k === '公倍') {
-      this.insertText('lcm(');
+      this.insertTemplate('lcm(□,□)');
       return;
     }
     if (k === '公约') {
-      this.insertText('gcd(');
+      this.insertTemplate('gcd(□,□)');
       return;
     }
     if (k === '|□|') {
-      this.insertText('abs(');
+      this.insertTemplate('abs(□)');
       return;
     }
     if (k === '□!') {
-      this.insertText('!');
+      if (this.hasOperandBefore()) {
+        this.insertTemplate('!');
+      } else {
+        this.insertTemplate('□!');
+      }
       return;
     }
     if (k === 'A□') {
-      this.insertText('A(');
+      this.insertTemplate('A(□,□)');
       return;
     }
     if (k === 'C□') {
-      this.insertText('C(');
+      this.insertTemplate('C(□,□)');
+      return;
+    }
+    if (k === 'sin' || k === 'cos' || k === 'tan' || k === 'arcsin' || k === 'arccos' || k === 'arctan') {
+      this.insertTemplate(`${k}(□)`);
       return;
     }
     if (k === '∫□' || k === 'lim') {
@@ -642,28 +700,65 @@ export struct SuperCalcPage {
             .scrollBar(BarState.Off)
             .align(Alignment.BottomEnd)
 
-            // 表达式 + 光标
+            // 表达式：逐字符可点定位光标，□ 占位块高亮
             Text() {
               if (this.expression.length === 0) {
                 Span('输入算式或方程…')
                   .fontSize(16)
                   .fontColor($r('app.color.text_secondary'))
-              } else {
-                Span(this.expression.substring(0, this.cursor))
-                  .fontSize(24)
-                  .fontColor($r('app.color.text_primary'))
               }
-              Span('❘')
-                .fontSize(24)
-                .fontWeight(FontWeight.Bold)
-                .fontColor($r('app.color.accent'))
-              Span(this.expression.substring(this.cursor))
-                .fontSize(24)
-                .fontColor($r('app.color.text_primary'))
+              if (this.cursor === 0 && this.expression.length > 0) {
+                Span('❘')
+                  .fontSize(24)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('app.color.accent'))
+              }
+              ForEach(this.expression.split(''), (ch: string, i: number) => {
+                if (ch === '□') {
+                  Span(this.cursor === i ? ' ❘ ' : '   ')
+                    .fontSize(22)
+                    .fontWeight(FontWeight.Bold)
+                    .fontColor('#FF9F43')
+                    .textBackgroundStyle({
+                      color: this.cursor === i ? '#66FF9F43' : '#2EFF9F43',
+                      radius: 4
+                    })
+                    .onClick(() => {
+                      this.lastSpanTap = Date.now();
+                      this.cursor = i;
+                    })
+                } else {
+                  Span(ch)
+                    .fontSize(24)
+                    .fontColor($r('app.color.text_primary'))
+                    .onClick(() => {
+                      this.lastSpanTap = Date.now();
+                      this.cursor = i + 1;
+                    })
+                }
+                if (this.cursor === i + 1) {
+                  Span('❘')
+                    .fontSize(24)
+                    .fontWeight(FontWeight.Bold)
+                    .fontColor($r('app.color.accent'))
+                }
+              }, (ch: string, i: number) => `${i}-${ch}-${this.cursor === i || this.cursor === i + 1 ? 'c' : ''}`)
+              if (this.expression.length === 0) {
+                Span('❘')
+                  .fontSize(24)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor($r('app.color.accent'))
+              }
             }
             .textAlign(TextAlign.End)
-            .maxLines(2)
+            .maxLines(3)
             .width('100%')
+            .onClick(() => {
+              // 点击空白处：光标移到末尾（Span 点击 100ms 内不抢占）
+              if (Date.now() - this.lastSpanTap > 100) {
+                this.cursor = this.expression.length;
+              }
+            })
 
             if (this.result.length > 0) {
               Text(`${this.result}${this.fracForm.length > 0 ? `  =  ${this.fracForm}` : ''}`)
