@@ -39,6 +39,8 @@
     { "name": "schedule_card_name", "value": "今日课程" },
     { "name": "schedule_card_desc", "value": "今天要上的课，一目了然" },
     { "name": "schedule_big_card_name", "value": "今日课程 · 大" },
-    { "name": "schedule_big_card_desc", "value": "全天课程时间线" }
+    { "name": "schedule_big_card_desc", "value": "全天课程时间线" },
+    { "name": "weather2_card_name", "value": "双城天气" },
+    { "name": "weather2_card_desc", "value": "两个城市天气同屏对比" }
   ]
 }

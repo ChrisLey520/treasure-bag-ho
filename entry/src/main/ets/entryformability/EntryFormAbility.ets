@@ -2,6 +2,7 @@ import { formBindingData, FormExtensionAbility, formProvider } from '@kit.FormKi
 import { Want } from '@kit.AbilityKit';
 import { preferences } from '@kit.ArkData';
 import { HttpUtil } from '../utils/HttpUtil';
+import { fetchCityWeather } from '../utils/WeatherFetch';
 
 const FOCUS_MINUTES = 25;
 const PREF_NAME = 'treasure_bag_tools';
@@ -167,31 +168,6 @@ interface NewsCardData {
   n3: string;
 }
 
-interface GeoResult {
-  name: string;
-  latitude: number;
-  longitude: number;
-}
-
-interface GeoResponse {
-  results?: GeoResult[];
-}
-
-interface WxCurrent {
-  temperature_2m: number;
-  weather_code: number;
-}
-
-interface WxDaily {
-  temperature_2m_max: number[];
-  temperature_2m_min: number[];
-}
-
-interface WxResponse {
-  current?: WxCurrent;
-  daily?: WxDaily;
-}
-
 interface NewsData {
   news?: string[];
   date?: string;
@@ -200,18 +176,6 @@ interface NewsData {
 interface NewsResponse {
   data?: NewsData;
 }
-
-const WMO_CODES: Record<string, string> = {
-  '0': '☀️ 晴', '1': '🌤️ 大部晴朗', '2': '⛅ 多云', '3': '☁️ 阴',
-  '45': '🌫️ 雾', '48': '🌫️ 冻雾',
-  '51': '🌦️ 毛毛雨', '53': '🌦️ 小雨', '55': '🌧️ 中雨',
-  '61': '🌧️ 小雨', '63': '🌧️ 中雨', '65': '🌧️ 大雨',
-  '66': '🌨️ 冻雨', '67': '🌨️ 强冻雨',
-  '71': '🌨️ 小雪', '73': '🌨️ 中雪', '75': '❄️ 大雪', '77': '❄️ 雪粒',
-  '80': '🌦️ 阵雨', '81': '🌧️ 强阵雨', '82': '⛈️ 暴雨',
-  '85': '🌨️ 阵雪', '86': '❄️ 强阵雪',
-  '95': '⛈️ 雷暴', '96': '⛈️ 雷暴冰雹', '99': '⛈️ 强雷暴冰雹'
-};
 
 function fmtHm(ts: number): string {
   const d = new Date(ts);
@@ -507,47 +471,18 @@ export default class EntryFormAbility extends FormExtensionAbility {
   /** 天气卡片：城市偏好 → Open-Meteo 两跳请求（失败静默保留旧数据） */
   private async fetchWeather(pref: preferences.Preferences): Promise<WeatherCardData | undefined> {
     const city = (pref.getSync('weather_city', '北京') as string).trim();
-    if (city.length === 0) {
+    const w = await fetchCityWeather(city);
+    if (w === undefined) {
       return undefined;
     }
-    const geoText = await HttpUtil.getText(
-      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=zh`, 8000);
-    if (geoText === undefined) {
-      return undefined;
-    }
-    try {
-      const geo = JSON.parse(geoText) as GeoResponse;
-      if (geo.results === undefined || geo.results.length === 0) {
-        return undefined;
-      }
-      const loc = geo.results[0];
-      const wxText = await HttpUtil.getText(
-        `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}` +
-        '&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min' +
-        '&timezone=auto&forecast_days=1', 8000);
-      if (wxText === undefined) {
-        return undefined;
-      }
-      const wx = JSON.parse(wxText) as WxResponse;
-      if (wx.current === undefined) {
-        return undefined;
-      }
-      const d = new Date();
-      let range = '';
-      if (wx.daily !== undefined && wx.daily.temperature_2m_min.length > 0) {
-        range = `${Math.round(wx.daily.temperature_2m_min[0])}° ~ ${Math.round(wx.daily.temperature_2m_max[0])}°`;
-      }
-      return {
-        city: loc.name,
-        temp: Math.round(wx.current.temperature_2m).toString(),
-        desc: WMO_CODES[wx.current.weather_code.toString()] ?? '—',
-        range: range,
-        updated: `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
-      };
-    } catch (err) {
-      console.error('fetch weather failed:', JSON.stringify(err));
-      return undefined;
-    }
+    const d = new Date();
+    return {
+      city: w.city,
+      temp: w.temp,
+      desc: w.desc,
+      range: w.range,
+      updated: `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+    };
   }
 
   /** 早报卡片：60s API 前 4 条标题 */

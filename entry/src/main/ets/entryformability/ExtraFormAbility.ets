@@ -2,11 +2,24 @@ import { formBindingData, FormExtensionAbility, formProvider } from '@kit.FormKi
 import { Want } from '@kit.AbilityKit';
 import { preferences } from '@kit.ArkData';
 import { buildTodayCourses, TodayInfo } from '../utils/ScheduleCardData';
+import { fetchCityWeather, CityWeather } from '../utils/WeatherFetch';
 
 const PREF_NAME = 'treasure_bag_tools';
 const KEY_FORM_PREFIX = 'card_type_';
 
 const WEEK_NAMES: string[] = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+interface Weather2CardData {
+  cityA: string;
+  tempA: string;
+  descA: string;
+  rangeA: string;
+  cityB: string;
+  tempB: string;
+  descB: string;
+  rangeB: string;
+  updated: string;
+}
 
 interface BigScheduleCardData {
   weekText: string;
@@ -61,6 +74,39 @@ export default class ExtraFormAbility extends FormExtensionAbility {
     };
   }
 
+  /** 双城天气：两城并发拉取，任一成功即组装（失败侧保留城市名占位） */
+  private async fetchWeather2(pref: preferences.Preferences): Promise<Weather2CardData | undefined> {
+    const cityA = (pref.getSync('weather_city', '北京') as string).trim();
+    const cityB = (pref.getSync('weather_city2', '上海') as string).trim();
+    const results = await Promise.all([fetchCityWeather(cityA), fetchCityWeather(cityB)]);
+    const a: CityWeather | undefined = results[0];
+    const b: CityWeather | undefined = results[1];
+    if (a === undefined && b === undefined) {
+      return undefined;
+    }
+    const d = new Date();
+    return {
+      cityA: a !== undefined ? a.city : cityA,
+      tempA: a !== undefined ? a.temp : '',
+      descA: a !== undefined ? a.desc : '',
+      rangeA: a !== undefined ? a.range : '',
+      cityB: b !== undefined ? b.city : cityB,
+      tempB: b !== undefined ? b.temp : '',
+      descB: b !== undefined ? b.desc : '',
+      rangeB: b !== undefined ? b.range : '',
+      updated: `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+    };
+  }
+
+  private refreshWeather2(formId: string, pref: preferences.Preferences): void {
+    this.fetchWeather2(pref).then((data: Weather2CardData | undefined): void => {
+      if (data !== undefined) {
+        formProvider.updateForm(formId, formBindingData.createFormBindingData(data))
+          .catch((err: Error) => console.error('updateForm failed:', err.message));
+      }
+    });
+  }
+
   onAddForm(want: Want): formBindingData.FormBindingData {
     const formName = want.parameters?.['ohos.extra.param.key.form_name'] as string;
     const formId = want.parameters?.['ohos.extra.param.key.form_identity'] as string;
@@ -71,6 +117,15 @@ export default class ExtraFormAbility extends FormExtensionAbility {
         pref.flush();
       }
       return formBindingData.createFormBindingData(this.bigScheduleData(pref));
+    }
+    if (formName === 'widget_weather2') {
+      const pref = this.getPref();
+      if (formId !== undefined) {
+        pref.putSync(`${KEY_FORM_PREFIX}${formId}`, formName);
+        pref.flush();
+        this.refreshWeather2(formId, pref);
+      }
+      return formBindingData.createFormBindingData({});
     }
     // 纯本地状态卡片（硬币骰子/彩虹屁），无需绑定数据
     return formBindingData.createFormBindingData({});
@@ -88,6 +143,10 @@ export default class ExtraFormAbility extends FormExtensionAbility {
     if (cardType === 'widget_schedule_big') {
       formProvider.updateForm(formId, formBindingData.createFormBindingData(this.bigScheduleData(pref)))
         .catch((err: Error) => console.error('updateForm failed:', err.message));
+      return;
+    }
+    if (cardType === 'widget_weather2') {
+      this.refreshWeather2(formId, pref);
     }
   }
 }

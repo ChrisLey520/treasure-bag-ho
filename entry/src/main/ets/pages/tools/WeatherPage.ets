@@ -56,15 +56,17 @@ export struct WeatherPage {
   @State daily?: DailyWeather = undefined;
   @State loading: boolean = false;
   @State error: string = '';
+  @State city2: string = '';   // 双城天气卡片的第二城市
 
   async aboutToAppear(): Promise<void> {
-    // 恢复上次查询的城市
+    // 恢复上次查询的城市与双城卡第二城市
     const ctx = this.getUIContext().getHostContext();
     if (ctx !== undefined) {
       const saved = await ToolStore.get(ctx, 'weather_city', '');
       if (saved.length > 0) {
         this.city = saved;
       }
+      this.city2 = await ToolStore.get(ctx, 'weather_city2', '上海');
     }
   }
 
@@ -141,6 +143,35 @@ export struct WeatherPage {
               .onClick(() => this.query())
           }
           .width('100%')
+
+          // 双城天气卡片的第二城市
+          Row({ space: 10 }) {
+            Text('双城卡第二城市')
+              .fontSize(12)
+              .fontColor($r('app.color.text_secondary'))
+            TextInput({ placeholder: '如：上海', text: this.city2 })
+              .layoutWeight(1)
+              .height(38)
+              .borderRadius(12)
+              .backgroundColor($r('app.color.bg_card'))
+              .fontColor($r('app.color.text_primary'))
+              .onChange((v: string) => { this.city2 = v; })
+              .onSubmit(() => {
+                ToolStore.save('weather_city2', this.city2.trim());
+                this.getUIContext().getPromptAction().showToast({ message: '已保存，卡片下次刷新生效', duration: 2000 });
+              })
+            Button('保存')
+              .height(38)
+              .fontSize(13)
+              .backgroundColor($r('app.color.bg_card'))
+              .fontColor($r('app.color.accent'))
+              .onClick(() => {
+                ToolStore.save('weather_city2', this.city2.trim());
+                this.getUIContext().getPromptAction().showToast({ message: '已保存，卡片下次刷新生效', duration: 2000 });
+              })
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
 
           if (this.error.length > 0) {
             Text(this.error)
