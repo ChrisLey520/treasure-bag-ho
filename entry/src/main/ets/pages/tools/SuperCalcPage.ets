@@ -20,6 +20,21 @@ interface TemplateGroup {
   exprs: string[];
 }
 
+/** 回显区渲染元素：带原字符串索引，支持上/下标层级与参数块 */
+interface RItem {
+  s: string;        // 显示文本（参数块为空串）
+  box: boolean;     // 是否参数输入块
+  level: number;    // 0 正常 1 上标 2 下标
+  start: number;    // 在表达式串中的起始索引
+  end: number;      // 结束索引（不含）
+  cb: boolean;      // 光标画在该元素之前
+  sel: boolean;     // 参数块处于选中态（光标落在块上）
+}
+
+/** 回显区按整体渲染的函数名（长名优先匹配） */
+const RENDER_FNS: string[] = ['arcsin', 'arccos', 'arctan', 'log10', 'log2',
+  'lcm', 'gcd', 'abs', 'sin', 'cos', 'tan', 'ANS', 'lim', 'log', 'ln'];
+
 /** 基础键盘：对齐参考 App，可上下滚动（□ 为占位符模板键） */
 const BASIC_KEYS: string[][] = [
   ['log□', '□^□', '√□', '□/□', '÷'],
@@ -179,6 +194,185 @@ export struct SuperCalcPage {
     this.cursor = 0;
     this.result = '';
     this.fracForm = '';
+  }
+
+  /**
+   * 回显区数学式富渲染：把表达式扫描为带原串索引的元素序列。
+   * log(b,x)→log 下标 b (x)、A/C(n,r)→下标 n 上标 r、^→上标、
+   * abs(x)→|x|、log2/log10→log 下标底数；□ 为参数输入块
+   */
+  buildRender(): RItem[] {
+    const s = this.expression;
+    const items: RItem[] = [];
+    const modeStack: string[] = [];   // 与括号深度同步：''/logbase/logarg/abs/sup/An/Ar
+    let supRunUntil = -1;
+    let supPending = false;
+    let i = 0;
+
+    const curLevel = (idx: number): number => {
+      if (idx < supRunUntil) {
+        return 1;
+      }
+      for (let d = modeStack.length - 1; d >= 0; d--) {
+        const m = modeStack[d];
+        if (m === 'sup' || m === 'Ar') {
+          return 1;
+        }
+        if (m === 'logbase' || m === 'An') {
+          return 2;
+        }
+      }
+      return 0;
+    };
+    const push = (txt: string, box: boolean, st: number, en: number): void => {
+      items.push({ s: txt, box: box, level: curLevel(st), start: st, end: en, cb: false, sel: false } as RItem);
+    };
+    // openIdx 处的括号内、深度 1 上是否有逗号（判断双参形式）
+    const hasComma = (openIdx: number): boolean => {
+      let d = 0;
+      for (let j = openIdx; j < s.length; j++) {
+        const c = s[j];
+        if (c === '(') {
+          d += 1;
+        } else if (c === ')') {
+          d -= 1;
+          if (d === 0) {
+            return false;
+          }
+        } else if (c === ',' && d === 1) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    while (i < s.length) {
+      const ch = s[i];
+      let matched = '';
+      for (const fn of RENDER_FNS) {
+        if (s.startsWith(fn, i)) {
+          matched = fn;
+          break;
+        }
+      }
+      if (matched === 'log' && s[i + 3] === '(' && hasComma(i + 3)) {
+        // log(底,真数)：底数下标，逗号处补可见 '('
+        push('log', false, i, i + 3);
+        modeStack.push('logbase');
+        i += 4;
+        continue;
+      }
+      if (matched === 'log2' || matched === 'log10') {
+        push('log', false, i, i + 3);
+        items.push({
+          s: matched.substring(3), box: false, level: 2,
+          start: i + 3, end: i + matched.length, cb: false, sel: false
+        } as RItem);
+        i += matched.length;
+        continue;
+      }
+      if (matched === 'abs' && s[i + 3] === '(') {
+        push('|', false, i, i + 4);
+        modeStack.push('abs');
+        i += 4;
+        continue;
+      }
+      if (matched.length > 0) {
+        push(matched, false, i, i + matched.length);
+        i += matched.length;
+        continue;
+      }
+      if ((ch === 'A' || ch === 'C') && s[i + 1] === '(' && hasComma(i + 1)) {
+        push(ch, false, i, i + 1);
+        modeStack.push('An');
+        i += 2;
+        continue;
+      }
+      if (ch === '(') {
+        if (supPending) {
+          modeStack.push('sup');   // 上标括号组：括号隐藏，内容升上标
+          supPending = false;
+        } else {
+          modeStack.push('');
+          push('(', false, i, i + 1);
+        }
+        i += 1;
+        continue;
+      }
+      if (ch === ')') {
+        const m = modeStack.length > 0 ? modeStack[modeStack.length - 1] : '';
+        if (m === 'abs') {
+          push('|', false, i, i + 1);
+        } else if (m === '' || m === 'logarg') {
+          push(')', false, i, i + 1);
+        }
+        // sup/An/Ar 的右括号隐藏
+        if (modeStack.length > 0) {
+          modeStack.pop();
+        }
+        i += 1;
+        continue;
+      }
+      if (ch === ',') {
+        const m = modeStack.length > 0 ? modeStack[modeStack.length - 1] : '';
+        if (m === 'logbase') {
+          modeStack[modeStack.length - 1] = 'logarg';
+          push('(', false, i, i + 1);
+        } else if (m === 'An') {
+          modeStack[modeStack.length - 1] = 'Ar';
+        } else {
+          push(',', false, i, i + 1);
+        }
+        i += 1;
+        continue;
+      }
+      if (ch === '^') {
+        // ^ 本身隐藏，其后操作数升为上标
+        if (s[i + 1] === '(') {
+          supPending = true;
+        } else {
+          let j = i + 1;
+          if (j < s.length && (s[j] === '−' || s[j] === '-')) {
+            j += 1;
+          }
+          if (j < s.length && ((s[j] >= '0' && s[j] <= '9') || s[j] === '.')) {
+            while (j < s.length && ((s[j] >= '0' && s[j] <= '9') || s[j] === '.')) {
+              j += 1;
+            }
+          } else if (j < s.length) {
+            j += 1;   // 单符号：x π e □ 等
+          }
+          supRunUntil = j;
+        }
+        i += 1;
+        continue;
+      }
+      if (ch === '□') {
+        push('', true, i, i + 1);
+        i += 1;
+        continue;
+      }
+      push(ch, false, i, i + 1);
+      i += 1;
+    }
+
+    // 光标标注：落在参数块上→块选中；否则画在其前的元素上
+    let done = false;
+    for (let k = 0; k < items.length; k++) {
+      const it = items[k];
+      if (!done && this.cursor <= it.start) {
+        if (it.box && this.cursor === it.start) {
+          it.sel = true;
+        } else {
+          it.cb = true;
+        }
+        done = true;
+      }
+    }
+    if (!done) {
+      items.push({ s: '', box: false, level: 0, start: s.length, end: s.length, cb: true, sel: false } as RItem);
+    }
+    return items;
   }
 
   // ════════ 执行：含 = 求解方程，否则求值 ════════
@@ -848,61 +1042,64 @@ export struct SuperCalcPage {
             .scrollBar(BarState.Off)
             .align(Alignment.BottomEnd)
 
-            // 表达式：逐字符可点定位光标，□ 占位块高亮
-            Text() {
+            // 表达式：数学式富渲染（上下标、参数块在公式对应位置），点击定位光标
+            Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap,
+              justifyContent: FlexAlign.End, alignItems: ItemAlign.Center }) {
               if (this.expression.length === 0) {
-                Span('输入算式或方程…')
+                Text('输入算式或方程…')
                   .fontSize(16)
                   .fontColor($r('app.color.text_secondary'))
-              }
-              if (this.cursor === 0 && this.expression.length > 0) {
-                Span('❘')
+                Text('❘')
                   .fontSize(24)
                   .fontWeight(FontWeight.Bold)
                   .fontColor($r('app.color.accent'))
-              }
-              ForEach(this.expression.split(''), (ch: string, i: number) => {
-                if (ch === '□') {
-                  Span(this.cursor === i ? ' ❘ ' : '   ')
-                    .fontSize(22)
-                    .fontWeight(FontWeight.Bold)
-                    .fontColor('#FF9F43')
-                    .textBackgroundStyle({
-                      color: this.cursor === i ? '#66FF9F43' : '#2EFF9F43',
-                      radius: 4
-                    })
+              } else {
+                ForEach(this.buildRender(), (it: RItem, idx: number) => {
+                  if (it.cb) {
+                    Text('❘')
+                      .fontSize(it.level === 0 ? 24 : 15)
+                      .fontWeight(FontWeight.Bold)
+                      .fontColor($r('app.color.accent'))
+                      .offset({ x: 0, y: it.level === 1 ? -8 : (it.level === 2 ? 8 : 0) })
+                  }
+                  if (it.box) {
+                    // 参数输入块：选中态深橙+光标符
+                    Row() {
+                      if (it.sel) {
+                        Text('❘')
+                          .fontSize(it.level === 0 ? 18 : 12)
+                          .fontWeight(FontWeight.Bold)
+                          .fontColor('#FF9F43')
+                      }
+                    }
+                    .justifyContent(FlexAlign.Center)
+                    .width(it.level === 0 ? 22 : 14)
+                    .height(it.level === 0 ? 26 : 16)
+                    .borderRadius(4)
+                    .backgroundColor(it.sel ? '#66FF9F43' : '#2EFF9F43')
+                    .border({ width: 1, color: it.sel ? '#FF9F43' : '#66FF9F43' })
+                    .margin({ left: 1, right: 1 })
+                    .offset({ x: 0, y: it.level === 1 ? -8 : (it.level === 2 ? 8 : 0) })
                     .onClick(() => {
                       this.lastSpanTap = Date.now();
-                      this.cursor = i;
+                      this.cursor = it.start;
                     })
-                } else {
-                  Span(ch)
-                    .fontSize(24)
-                    .fontColor($r('app.color.text_primary'))
-                    .onClick(() => {
-                      this.lastSpanTap = Date.now();
-                      this.cursor = i + 1;
-                    })
-                }
-                if (this.cursor === i + 1) {
-                  Span('❘')
-                    .fontSize(24)
-                    .fontWeight(FontWeight.Bold)
-                    .fontColor($r('app.color.accent'))
-                }
-              }, (ch: string, i: number) => `${i}-${ch}-${this.cursor === i || this.cursor === i + 1 ? 'c' : ''}`)
-              if (this.expression.length === 0) {
-                Span('❘')
-                  .fontSize(24)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor($r('app.color.accent'))
+                  } else if (it.s.length > 0) {
+                    Text(it.s)
+                      .fontSize(it.level === 0 ? 24 : 14)
+                      .fontColor($r('app.color.text_primary'))
+                      .offset({ x: 0, y: it.level === 1 ? -8 : (it.level === 2 ? 8 : 0) })
+                      .onClick(() => {
+                        this.lastSpanTap = Date.now();
+                        this.cursor = it.end;
+                      })
+                  }
+                }, (it: RItem, idx: number) => `${idx}-${it.s}-${it.box}-${it.level}-${it.cb}-${it.sel}`)
               }
             }
-            .textAlign(TextAlign.End)
-            .maxLines(3)
             .width('100%')
             .onClick(() => {
-              // 点击空白处：光标移到末尾（Span 点击 100ms 内不抢占）
+              // 点击空白处：光标移到末尾（元素点击 100ms 内不抢占）
               if (Date.now() - this.lastSpanTap > 100) {
                 this.cursor = this.expression.length;
               }
