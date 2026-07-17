@@ -13,10 +13,11 @@ const KEY_HABITS = 'habits';             // 与 HabitPage 共用的 JSON 数组
 const KEY_TODOS = 'todos';               // 与 TodoPage 共用的 JSON 数组
 const KEY_WOODFISH = 'woodfish';         // 与 WoodFishPage 共用 total|date|today
 const KEY_LEDGER = 'ledger';             // 与 LedgerPage 共用的 JSON 数组
+const KEY_SCHEDULE = 'schedule';         // 与 SchedulePage 共用的 JSON
 const KEY_FORM_PREFIX = 'card_type_';    // formId → formName 映射（数据类卡片刷新时区分）
 /** 数据类卡片（添加时记录类型、onUpdateForm 按类型刷新） */
 const DATA_CARDS: string[] = ['widget_water', 'widget_anniversary',
-  'widget_habit', 'widget_todo', 'widget_woodfish', 'widget_ledger', 'widget_calendar'];
+  'widget_habit', 'widget_todo', 'widget_woodfish', 'widget_ledger', 'widget_calendar', 'widget_schedule'];
 /** 网络卡片（onUpdateForm 异步拉取后回推） */
 const NET_CARDS: string[] = ['widget_weather', 'widget_news'];
 
@@ -103,6 +104,50 @@ interface LedgerCardData {
 
 interface StampData {
   stamp: number;
+}
+
+interface SchedCourseBase {
+  id: number;
+  courseName: string;
+}
+
+interface SchedCourseDetail {
+  id: number;
+  day: number;
+  room: string;
+  startNode: number;
+  step: number;
+  startWeek: number;
+  endWeek: number;
+  type: number;
+}
+
+interface SchedTable {
+  startDate: string;
+  maxWeek: number;
+}
+
+interface SchedData {
+  table: SchedTable;
+  courses: SchedCourseBase[];
+  details: SchedCourseDetail[];
+}
+
+interface ScheduleCardData {
+  weekText: string;
+  t0: string;
+  c0: string;
+  r0: string;
+  t1: string;
+  c1: string;
+  r1: string;
+  t2: string;
+  c2: string;
+  r2: string;
+  t3: string;
+  c3: string;
+  r3: string;
+  more: number;
 }
 
 interface WeatherCardData {
@@ -357,6 +402,74 @@ export default class EntryFormAbility extends FormExtensionAbility {
     };
   }
 
+  // ── 今日课程卡片数据：今天 + 当前周 + 单双周过滤，按节次排序取前 4 ──
+  private scheduleData(pref: preferences.Preferences): ScheduleCardData {
+    const empty: ScheduleCardData = {
+      weekText: '', t0: '', c0: '', r0: '', t1: '', c1: '', r1: '',
+      t2: '', c2: '', r2: '', t3: '', c3: '', r3: '', more: 0
+    };
+    const saved = pref.getSync(KEY_SCHEDULE, '') as string;
+    if (saved.length === 0) {
+      return empty;
+    }
+    let data: SchedData | undefined = undefined;
+    try {
+      data = JSON.parse(saved) as SchedData;
+    } catch (err) {
+      return empty;
+    }
+    // 当前周
+    const parts = data.table.startDate.split('-');
+    const start = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const week = Math.max(1, Math.min(data.table.maxWeek,
+      Math.floor(Math.floor((today.getTime() - start.getTime()) / 86400000) / 7) + 1));
+    const weekday = now.getDay() === 0 ? 7 : now.getDay();
+    // 今天该上的课
+    const nameOf = (id: number): string => {
+      for (const c of data!.courses) {
+        if (c.id === id) {
+          return c.courseName;
+        }
+      }
+      return '';
+    };
+    const todays: SchedCourseDetail[] = [];
+    for (const dt of data.details) {
+      if (dt.day !== weekday || week < dt.startWeek || week > dt.endWeek) {
+        continue;
+      }
+      if (dt.type === 1 && week % 2 === 0) {
+        continue;
+      }
+      if (dt.type === 2 && week % 2 === 1) {
+        continue;
+      }
+      todays.push(dt);
+    }
+    todays.sort((a: SchedCourseDetail, b: SchedCourseDetail): number => a.startNode - b.startNode);
+    const top = todays.slice(0, 4);
+    const timeStr = (dt: SchedCourseDetail): string =>
+      dt.step > 1 ? `${dt.startNode}-${dt.startNode + dt.step - 1}节` : `${dt.startNode}节`;
+    return {
+      weekText: `第${week}周 ${week % 2 === 1 ? '单' : '双'}`,
+      t0: top.length > 0 ? timeStr(top[0]) : '',
+      c0: top.length > 0 ? nameOf(top[0].id) : '',
+      r0: top.length > 0 ? top[0].room : '',
+      t1: top.length > 1 ? timeStr(top[1]) : '',
+      c1: top.length > 1 ? nameOf(top[1].id) : '',
+      r1: top.length > 1 ? top[1].room : '',
+      t2: top.length > 2 ? timeStr(top[2]) : '',
+      c2: top.length > 2 ? nameOf(top[2].id) : '',
+      r2: top.length > 2 ? top[2].room : '',
+      t3: top.length > 3 ? timeStr(top[3]) : '',
+      c3: top.length > 3 ? nameOf(top[3].id) : '',
+      r3: top.length > 3 ? top[3].room : '',
+      more: Math.max(0, todays.length - 4)
+    };
+  }
+
   /** 数据类卡片按类型组装数据 */
   private dataFor(formName: string, pref: preferences.Preferences): formBindingData.FormBindingData {
     if (formName === 'widget_water') {
@@ -377,6 +490,9 @@ export default class EntryFormAbility extends FormExtensionAbility {
     if (formName === 'widget_calendar') {
       // 万年历卡片自算日期，仅推刷新信号触发重渲染
       return formBindingData.createFormBindingData({ stamp: Date.now() } as StampData);
+    }
+    if (formName === 'widget_schedule') {
+      return formBindingData.createFormBindingData(this.scheduleData(pref));
     }
     return formBindingData.createFormBindingData(this.ledgerData(pref));
   }
