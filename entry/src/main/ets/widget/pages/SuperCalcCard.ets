@@ -423,7 +423,7 @@ struct SuperCalcCard {
     .width('100%')
   }
 
-  /** 编辑工具条：清空 ◀ ▶ 退格 */
+  /** 编辑工具条：清空 主键(=/绘制) ◀ ▶ 退格（与 App 内工具条对齐） */
   @Builder
   editBar() {
     Row({ space: 4 }) {
@@ -439,6 +439,22 @@ struct SuperCalcCard {
           this.cursor = 0;
           this.result = '';
           this.plotError = '';
+        })
+      Text(this.mode === 1 ? '绘制' : '=')
+        .fontSize(this.mode === 1 ? 11 : 14)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.White)
+        .textAlign(TextAlign.Center)
+        .layoutWeight(2)
+        .height(24)
+        .borderRadius(7)
+        .backgroundColor($r('app.color.accent'))
+        .onClick(() => {
+          if (this.mode === 1) {
+            this.plotFromExpr();
+          } else {
+            this.onEquals();
+          }
         })
       Text('◀')
         .fontSize(11)
