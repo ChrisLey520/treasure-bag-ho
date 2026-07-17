@@ -1,6 +1,6 @@
-import { generateBarcode, scanCore } from '@kit.ScanKit';
 import { image } from '@kit.ImageKit';
 import { ImageUtil } from '../../utils/ImageUtil';
+import { QrCode, QrEcc } from '../../utils/QrCodeGen';
 
 @Component
 export struct QrGenPage {
@@ -8,6 +8,10 @@ export struct QrGenPage {
   @State qrPixelMap?: image.PixelMap = undefined;
   @State working: boolean = false;
 
+  /**
+   * 本地生成（不依赖 ScanKit 系统服务，模拟器/无 HMS 环境也可用）：
+   * QrCodeGen 编码 → RGBA 像素 → PixelMap
+   */
   async generate(): Promise<void> {
     const text = this.content.trim();
     if (text.length === 0 || this.working) {
@@ -15,18 +19,40 @@ export struct QrGenPage {
     }
     this.working = true;
     try {
-      const options: generateBarcode.CreateOptions = {
-        scanType: scanCore.ScanType.QR_CODE,
-        height: 600,
-        width: 600,
-        margin: 2
-      };
-      const pm = await generateBarcode.createBarcode(text, options);
+      const qr = QrCode.encodeText(text, QrEcc.MEDIUM);
+      const border = 2;
+      const dim = qr.size + border * 2;
+      const scale = Math.max(4, Math.floor(600 / dim));
+      const px = dim * scale;
+      const buf = new ArrayBuffer(px * px * 4);
+      const arr = new Uint8Array(buf);
+      for (let y = 0; y < px; y++) {
+        const my = Math.floor(y / scale) - border;
+        for (let x = 0; x < px; x++) {
+          const mx = Math.floor(x / scale) - border;
+          const dark = qr.getModule(mx, my);
+          const off = (y * px + x) * 4;
+          const v = dark ? 0 : 255;
+          arr[off] = v;
+          arr[off + 1] = v;
+          arr[off + 2] = v;
+          arr[off + 3] = 255;
+        }
+      }
+      const pm = await image.createPixelMap(buf, {
+        size: { width: px, height: px },
+        pixelFormat: image.PixelMapFormat.RGBA_8888,
+        alphaType: image.AlphaType.OPAQUE
+      });
       this.qrPixelMap?.release();
       this.qrPixelMap = pm;
     } catch (err) {
       console.error('generate qr failed:', JSON.stringify(err));
-      this.getUIContext().getPromptAction().showToast({ message: '生成失败，内容可能过长', duration: 1500 });
+      const msg = (err as Error).message ?? '';
+      this.getUIContext().getPromptAction().showToast({
+        message: msg.includes('过长') ? '内容过长，无法编码' : '生成失败',
+        duration: 1500
+      });
     }
     this.working = false;
   }
