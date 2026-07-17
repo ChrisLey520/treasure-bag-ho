@@ -28,6 +28,118 @@ export const RENDER_FNS: string[] = ['arcsin', 'arccos', 'arctan', 'log10', 'log
 export const EDIT_FNS: string[] = ['arcsin', 'arccos', 'arctan', 'asin', 'acos', 'atan',
   'log2', 'lcm(', 'gcd(', 'abs(', 'lim(', 'sin', 'cos', 'tan', 'abs', 'ln', 'log', 'ANS', 'A(', 'C(', '∫('];
 
+/** 基础键盘：对齐参考 App，可上下滚动（□ 为占位符模板键） */
+export const BASIC_KEYS: string[][] = [
+  ['log□', '□^□', '√□', '□/□', '÷'],
+  ['x', '7', '8', '9', '×'],
+  ['y', '4', '5', '6', '−'],
+  ['z', '1', '2', '3', '+'],
+  ['(', ')', '0', '.', '='],
+  ['log₂', 'log₁₀', 'ln', '°', '′″'],
+  ['<', '≤', '>', '≥', '∞'],
+  ['π', 'e', 'i', ';', '']
+];
+
+/** 函数键盘：对齐参考 App f 面板（□ 为占位符模板键） */
+export const FUNC_KEYS: string[][] = [
+  ['sin', 'cos', 'tan', '公倍', '公约'],
+  ['arcsin', 'arccos', 'arctan', '|□|', '□!'],
+  ['∫□', 'lim', 'A□', 'C□', '']
+];
+
+/** 字母键盘：对齐参考 App a-z 面板（只保留常用字母） */
+export const AZ_KEYS: string[][] = [
+  ['a', 'b', 'c', 'h', 'k'],
+  ['p', '', '', '', '']
+];
+
+/**
+ * 模板键 → 插入串（含 □ 占位块）。返回空串表示不是模板键（按普通文本插入）。
+ * hasOperand：光标前已有左操作数（决定 ^ ! ÷ 是否补前置占位块）
+ */
+export function keyTemplate(k: string, hasOperand: boolean): string {
+  if (k === 'log□') {
+    return 'log(□,□)';
+  }
+  if (k === '□^□') {
+    return hasOperand ? '^□' : '□^□';
+  }
+  if (k === '√□') {
+    return '√□';
+  }
+  if (k === '□/□') {
+    return hasOperand ? '÷□' : '□÷□';
+  }
+  if (k === 'log₂') {
+    return 'log2(□)';
+  }
+  if (k === 'log₁₀') {
+    return 'log(□)';
+  }
+  if (k === 'ln') {
+    return 'ln(□)';
+  }
+  if (k === '公倍') {
+    return 'lcm(□,□)';
+  }
+  if (k === '公约') {
+    return 'gcd(□,□)';
+  }
+  if (k === '|□|') {
+    return 'abs(□)';
+  }
+  if (k === '□!') {
+    return hasOperand ? '!' : '□!';
+  }
+  if (k === 'A□') {
+    return 'A(□,□)';
+  }
+  if (k === 'C□') {
+    return 'C(□,□)';
+  }
+  if (k === 'sin' || k === 'cos' || k === 'tan' ||
+    k === 'arcsin' || k === 'arccos' || k === 'arctan') {
+    return `${k}(□)`;
+  }
+  if (k === '∫□') {
+    return '∫(□,□,□)';
+  }
+  if (k === 'lim') {
+    return 'lim(□,□)';
+  }
+  return '';
+}
+
+/** 剔除 ∫(…)/lim(…) 整段后检测自由变量（积分/极限变量不算未知数） */
+export function hasFreeVarIn(s: string): boolean {
+  let out = '';
+  let i = 0;
+  while (i < s.length) {
+    let hit = 0;
+    if (s[i] === '∫' && s[i + 1] === '(') {
+      hit = 2;
+    } else if (s.startsWith('lim(', i)) {
+      hit = 4;
+    }
+    if (hit > 0) {
+      i += hit;
+      let d = 1;
+      while (i < s.length && d > 0) {
+        if (s[i] === '(') {
+          d += 1;
+        } else if (s[i] === ')') {
+          d -= 1;
+        }
+        i += 1;
+      }
+      continue;
+    }
+    out += s[i];
+    i += 1;
+  }
+  return /[xyz]/.test(out.replace(/lcm|gcd|abs|arcsin|arccos|arctan|asin|acos|atan|ans/gi, ''));
+}
+
 /** 光标位插入文本；光标停在 □ 上则替换该块 */
 export function insertTextAt(expr: string, cursor: number, s: string): EditState {
   let after = expr.substring(cursor);

@@ -1,6 +1,7 @@
 import { SciParser, fmtResult, normalizeFx, equationToFx, toFraction } from '../../utils/SciParser';
 import { RItem, EditState, buildRenderItems, insertTextAt, insertTemplateAt,
-  backspaceAt, moveCursorBy, hasOperandBeforeAt } from '../../utils/CalcRender';
+  backspaceAt, moveCursorBy, hasOperandBeforeAt, hasFreeVarIn,
+  BASIC_KEYS, FUNC_KEYS, AZ_KEYS, keyTemplate } from '../../utils/CalcRender';
 
 interface HistoryItem {
   expr: string;
@@ -26,31 +27,6 @@ interface TemplateGroup {
   label: string;
   exprs: string[];
 }
-
-/** 基础键盘：对齐参考 App，可上下滚动（□ 为占位符模板键） */
-const BASIC_KEYS: string[][] = [
-  ['log□', '□^□', '√□', '□/□', '÷'],
-  ['x', '7', '8', '9', '×'],
-  ['y', '4', '5', '6', '−'],
-  ['z', '1', '2', '3', '+'],
-  ['(', ')', '0', '.', '='],
-  ['log₂', 'log₁₀', 'ln', '°', '′″'],
-  ['<', '≤', '>', '≥', '∞'],
-  ['π', 'e', 'i', ';', '']
-];
-
-/** 函数键盘：对齐参考 App f 面板（□ 为占位符模板键） */
-const FUNC_KEYS: string[][] = [
-  ['sin', 'cos', 'tan', '公倍', '公约'],
-  ['arcsin', 'arccos', 'arctan', '|□|', '□!'],
-  ['∫□', 'lim', 'A□', 'C□', '']
-];
-
-/** 字母键盘：对齐参考 App，只保留常用字母 a-p 两行 */
-const AZ_KEYS: string[][] = [
-  ['a', 'b', 'c', 'h', 'k'],
-  ['p', '', '', '', '']
-];
 
 /** a-z 面板下方的常用函数模板（对齐截图） */
 const AZ_TEMPLATES: Template[] = [
@@ -473,32 +449,7 @@ export struct SuperCalcPage {
 
   /** 剔除 ∫(…)/lim(…) 整段后检测自由变量（积分/极限变量不算未知数） */
   private hasFreeVar(s: string): boolean {
-    let out = '';
-    let i = 0;
-    while (i < s.length) {
-      let hit = 0;
-      if (s[i] === '∫' && s[i + 1] === '(') {
-        hit = 2;
-      } else if (s.startsWith('lim(', i)) {
-        hit = 4;
-      }
-      if (hit > 0) {
-        i += hit;
-        let d = 1;
-        while (i < s.length && d > 0) {
-          if (s[i] === '(') {
-            d += 1;
-          } else if (s[i] === ')') {
-            d -= 1;
-          }
-          i += 1;
-        }
-        continue;
-      }
-      out += s[i];
-      i += 1;
-    }
-    return /[xyz]/.test(out.replace(/lcm|gcd|abs|arcsin|arccos|arctan|asin|acos|atan|ans/gi, ''));
+    return hasFreeVarIn(s);
   }
 
   /** 光标前是否已有可作为左操作数的内容（决定 ^ ! ÷ 是否补前置占位块） */
@@ -1092,43 +1043,6 @@ export struct SuperCalcPage {
       this.onEquals();
       return;
     }
-    // 模板键 → 插入 □ 占位块，光标落在首个 □（输入即替换）
-    if (k === 'log□') {
-      this.insertTemplate('log(□,□)');
-      return;
-    }
-    if (k === '□^□') {
-      if (this.hasOperandBefore()) {
-        this.insertTemplate('^□');
-      } else {
-        this.insertTemplate('□^□');
-      }
-      return;
-    }
-    if (k === '√□') {
-      this.insertTemplate('√□');
-      return;
-    }
-    if (k === '□/□') {
-      if (this.hasOperandBefore()) {
-        this.insertTemplate('÷□');
-      } else {
-        this.insertTemplate('□÷□');
-      }
-      return;
-    }
-    if (k === 'log₂') {
-      this.insertTemplate('log2(□)');
-      return;
-    }
-    if (k === 'log₁₀') {
-      this.insertTemplate('log(□)');
-      return;
-    }
-    if (k === 'ln') {
-      this.insertTemplate('ln(□)');
-      return;
-    }
     if (k === '′″') {
       // 分′秒″复合键：先插 ′，紧接再按升级为 ″
       if (this.cursor > 0 && this.expression[this.cursor - 1] === '′') {
@@ -1138,45 +1052,10 @@ export struct SuperCalcPage {
       }
       return;
     }
-    // f 面板模板键
-    if (k === '公倍') {
-      this.insertTemplate('lcm(□,□)');
-      return;
-    }
-    if (k === '公约') {
-      this.insertTemplate('gcd(□,□)');
-      return;
-    }
-    if (k === '|□|') {
-      this.insertTemplate('abs(□)');
-      return;
-    }
-    if (k === '□!') {
-      if (this.hasOperandBefore()) {
-        this.insertTemplate('!');
-      } else {
-        this.insertTemplate('□!');
-      }
-      return;
-    }
-    if (k === 'A□') {
-      this.insertTemplate('A(□,□)');
-      return;
-    }
-    if (k === 'C□') {
-      this.insertTemplate('C(□,□)');
-      return;
-    }
-    if (k === 'sin' || k === 'cos' || k === 'tan' || k === 'arcsin' || k === 'arccos' || k === 'arctan') {
-      this.insertTemplate(`${k}(□)`);
-      return;
-    }
-    if (k === '∫□') {
-      this.insertTemplate('∫(□,□,□)');
-      return;
-    }
-    if (k === 'lim') {
-      this.insertTemplate('lim(□,□)');
+    // 模板键 → 插入 □ 占位块，光标落在首个 □（输入即替换；映射表与卡片共用）
+    const tpl = keyTemplate(k, this.hasOperandBefore());
+    if (tpl.length > 0) {
+      this.insertTemplate(tpl);
       return;
     }
     this.insertText(k);

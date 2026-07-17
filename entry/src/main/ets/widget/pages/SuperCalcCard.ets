@@ -1,18 +1,9 @@
 import { SciParser, fmtResult, normalizeFx } from '../../utils/SciParser';
-import { RItem, EditState, buildRenderItems, insertTextAt, insertTemplateAt,
-  backspaceAt, moveCursorBy, hasOperandBeforeAt } from '../../utils/CalcRender';
+import { RItem, buildRenderItems, insertTextAt, insertTemplateAt,
+  backspaceAt, moveCursorBy, hasOperandBeforeAt, hasFreeVarIn,
+  BASIC_KEYS, FUNC_KEYS, AZ_KEYS, keyTemplate } from '../../utils/CalcRender';
 
 let storageSuper = new LocalStorage();
-
-/** 与 App 内超级计算器对齐的键盘（□ 为占位块模板键），卡片空间取基础区+函数行 */
-const CARD_KEYS: string[][] = [
-  ['log□', '□^□', '√□', '□/□', '÷'],
-  ['x', '7', '8', '9', '×'],
-  ['y', '4', '5', '6', '−'],
-  ['z', '1', '2', '3', '+'],
-  ['(', ')', '0', '.', '='],
-  ['sin', 'cos', 'tan', 'π', 'e']
-];
 
 @Entry(storageSuper)
 @Component
@@ -43,33 +34,47 @@ struct SuperCalcCard {
 
   /** 出结果后继续输入：式尾待求的 = 被新内容替换（与 App 内一致） */
   private consumeTrailingEq(): void {
-    if (this.expression.endsWith('=')) {
-      this.expression = this.expression.substring(0, this.expression.length - 1);
-      if (this.cursor > this.expression.length) {
-        this.cursor = this.expression.length;
+    if (!this.expression.endsWith('=')) {
+      return;
+    }
+    const body = this.expression.substring(0, this.expression.length - 1);
+    const segs = body.split(/[;；]/);
+    const last = segs[segs.length - 1];
+    if (last.includes('=') || !hasFreeVarIn(last)) {
+      this.expression = body;
+      if (this.cursor > body.length) {
+        this.cursor = body.length;
       }
     }
   }
 
-  /** = 键：式尾补显 = 并求值（与 App 内一致；方程求解请进 App） */
+  /** = 键：式尾补显 = 并求值（与 App 内一致；方程/方程组求解请进 App） */
   private onEquals(): void {
-    const body = this.expression.endsWith('=')
-      ? this.expression.substring(0, this.expression.length - 1).trim()
-      : this.expression.trim();
-    if (body.length === 0) {
+    if (this.expression.trim().length === 0) {
       return;
     }
-    if (body.includes('□')) {
+    if (this.expression.includes('□')) {
       this.cursor = this.expression.indexOf('□');
       this.result = '请先填写参数块';
       return;
     }
     if (!this.expression.endsWith('=')) {
+      const segs = this.expression.split(/[;；]/);
+      const last = segs[segs.length - 1];
       this.expression += '=';
       this.cursor = this.expression.length;
+      if (!last.includes('=') && hasFreeVarIn(last)) {
+        // 方程本身的 =：等待右边
+        this.result = '';
+        return;
+      }
     }
-    if (/[xyz]/.test(body.replace(/sin|cos|tan|ans/gi, ''))) {
-      this.result = '方程请进 App 求解';
+    let body = this.expression.substring(0, this.expression.length - 1).trim();
+    if (body.length === 0) {
+      return;
+    }
+    if (body.includes('=') || body.includes(';') || body.includes('；') || hasFreeVarIn(body)) {
+      this.result = '方程请点击标题进 App 求解';
       return;
     }
     try {
@@ -89,33 +94,19 @@ struct SuperCalcCard {
       this.onEquals();
       return;
     }
-    // 模板键 → 插入 □ 占位块，光标落在首个 □（与 App 内一致）
-    if (k === 'log□') {
-      this.insertTemplate('log(□,□)');
-      return;
-    }
-    if (k === '□^□') {
-      if (hasOperandBeforeAt(this.expression, this.cursor)) {
-        this.insertTemplate('^□');
+    if (k === '′″') {
+      // 分′秒″复合键：先插 ′，紧接再按升级为 ″
+      if (this.cursor > 0 && this.expression[this.cursor - 1] === '′') {
+        this.expression = this.expression.substring(0, this.cursor - 1) + '″' + this.expression.substring(this.cursor);
       } else {
-        this.insertTemplate('□^□');
+        this.insertText('′');
       }
       return;
     }
-    if (k === '√□') {
-      this.insertTemplate('√□');
-      return;
-    }
-    if (k === '□/□') {
-      if (hasOperandBeforeAt(this.expression, this.cursor)) {
-        this.insertTemplate('÷□');
-      } else {
-        this.insertTemplate('□÷□');
-      }
-      return;
-    }
-    if (k === 'sin' || k === 'cos' || k === 'tan') {
-      this.insertTemplate(`${k}(□)`);
+    // 模板键映射与 App 内共用
+    const tpl = keyTemplate(k, hasOperandBeforeAt(this.expression, this.cursor));
+    if (tpl.length > 0) {
+      this.insertTemplate(tpl);
       return;
     }
     this.insertText(k);
@@ -125,20 +116,17 @@ struct SuperCalcCard {
     if ((k >= '0' && k <= '9') || k === '.') {
       return true;
     }
-    return k === 'x' || k === 'y' || k === 'z' || k === '(' || k === ')';
+    if (k === 'x' || k === 'y' || k === 'z' || k === '(' || k === ')') {
+      return true;
+    }
+    return k === 'a' || k === 'b' || k === 'c' || k === 'h' || k === 'k' || k === 'p';
   }
 
   keyBg(k: string): ResourceColor {
-    if (k === '=') {
-      return $r('app.color.accent');
-    }
     return this.isPlainKey(k) ? $r('app.color.bg_card') : '#2E3140';
   }
 
   keyFg(k: string): ResourceColor {
-    if (k === '=') {
-      return Color.White;
-    }
     return this.isPlainKey(k) ? $r('app.color.text_primary') : '#7B88FF';
   }
 
@@ -152,7 +140,7 @@ struct SuperCalcCard {
       .backgroundColor('#4D8A8F9C')
   }
 
-  /** 按键面：模板键在参数对应位置画输入块（与 App 内 keyFace 对齐） */
+  /** 按键面：多参数公式键在对应位置画输入块（与 App 内 keyFace 对齐，尺寸缩小） */
   @Builder
   keyFace(k: string) {
     if (k === 'log□') {
@@ -185,12 +173,96 @@ struct SuperCalcCard {
         this.pbox(7, 6)
       }
       .alignItems(HorizontalAlign.Center)
+    } else if (k === '|□|') {
+      Row({ space: 1 }) {
+        Text('|').fontSize(12).fontColor('#7B88FF')
+        this.pbox(7, 8)
+        Text('|').fontSize(12).fontColor('#7B88FF')
+      }
+      .alignItems(VerticalAlign.Center)
+    } else if (k === '□!') {
+      Row({ space: 1 }) {
+        this.pbox(8, 9)
+        Text('!').fontSize(13).fontColor('#7B88FF')
+      }
+      .alignItems(VerticalAlign.Center)
+    } else if (k === '∫□') {
+      Row() {
+        Text('∫').fontSize(17).fontColor('#7B88FF')
+        Column({ space: 7 }) {
+          this.pbox(5, 5)
+          this.pbox(5, 5)
+        }.margin({ left: 1 })
+      }
+      .alignItems(VerticalAlign.Center)
+    } else if (k === 'lim') {
+      Column({ space: 1 }) {
+        Text('lim').fontSize(10).fontColor('#7B88FF')
+        Row({ space: 1 }) {
+          this.pbox(4, 4)
+          Text('→').fontSize(7).fontColor('#7B88FF')
+          this.pbox(4, 4)
+        }
+        .alignItems(VerticalAlign.Center)
+      }
+      .alignItems(HorizontalAlign.Center)
+    } else if (k === 'A□' || k === 'C□') {
+      Row() {
+        Text(k.substring(0, 1)).fontSize(13).fontColor('#7B88FF')
+        Column({ space: 4 }) {
+          this.pbox(5, 5)
+          this.pbox(5, 5)
+        }.margin({ left: 1 })
+      }
+      .alignItems(VerticalAlign.Center)
+    } else if (k === 'log₂' || k === 'log₁₀' || k === 'ln') {
+      Row({ space: 1 }) {
+        Text(k).fontSize(k === 'log₁₀' ? 9 : 10).fontColor('#7B88FF')
+        this.pbox(7, 8)
+      }
+      .alignItems(VerticalAlign.Center)
+    } else if (k === '°') {
+      Row({ space: 1 }) {
+        this.pbox(6, 7)
+        Text('°').fontSize(12).fontColor('#7B88FF')
+      }
+      .alignItems(VerticalAlign.Center)
+    } else if (k === '′″') {
+      Row({ space: 1 }) {
+        this.pbox(5, 6)
+        Text('′').fontSize(10).fontColor('#7B88FF')
+        this.pbox(5, 6)
+        Text('″').fontSize(10).fontColor('#7B88FF')
+      }
+      .alignItems(VerticalAlign.Center)
     } else {
       Text(k)
-        .fontSize(k.length > 2 ? 10 : 13)
+        .fontSize(k.length > 2 ? 9 : 13)
         .fontWeight(FontWeight.Medium)
         .fontColor(this.keyFg(k))
     }
+  }
+
+  /** 键盘按键行 */
+  @Builder
+  keyRows(layout: string[][], tag: string) {
+    ForEach(layout, (row: string[]) => {
+      Row({ space: 4 }) {
+        ForEach(row, (k: string) => {
+          Row() {
+            this.keyFace(k)
+          }
+          .justifyContent(FlexAlign.Center)
+          .alignItems(VerticalAlign.Center)
+          .layoutWeight(1)
+          .height(34)
+          .borderRadius(8)
+          .backgroundColor(k.length === 0 ? Color.Transparent : this.keyBg(k))
+          .onClick(() => this.onKey(k))
+        }, (k: string, j: number) => `${k}-${j}`)
+      }
+      .width('100%')
+    }, (row: string[], i: number) => `${tag}r${i}`)
   }
 
   build() {
@@ -302,7 +374,7 @@ struct SuperCalcCard {
           .fontSize(11)
           .textAlign(TextAlign.Center)
           .layoutWeight(1)
-          .height(22)
+          .height(24)
           .borderRadius(7)
           .backgroundColor('#33F5576C')
           .onClick(() => {
@@ -315,7 +387,7 @@ struct SuperCalcCard {
           .fontColor($r('app.color.text_primary'))
           .textAlign(TextAlign.Center)
           .layoutWeight(1)
-          .height(22)
+          .height(24)
           .borderRadius(7)
           .backgroundColor($r('app.color.bg_card'))
           .onClick(() => {
@@ -326,7 +398,7 @@ struct SuperCalcCard {
           .fontColor($r('app.color.text_primary'))
           .textAlign(TextAlign.Center)
           .layoutWeight(1)
-          .height(22)
+          .height(24)
           .borderRadius(7)
           .backgroundColor($r('app.color.bg_card'))
           .onClick(() => {
@@ -337,7 +409,7 @@ struct SuperCalcCard {
           .fontColor('#7B88FF')
           .textAlign(TextAlign.Center)
           .layoutWeight(1)
-          .height(22)
+          .height(24)
           .borderRadius(7)
           .backgroundColor('#2E3140')
           .onClick(() => {
@@ -349,29 +421,47 @@ struct SuperCalcCard {
       }
       .width('100%')
 
-      // 键盘：与 App 内基础面板同构（模板键带参数位输入块图标）
-      Column({ space: 4 }) {
-        ForEach(CARD_KEYS, (row: string[]) => {
-          Row({ space: 4 }) {
-            ForEach(row, (k: string) => {
-              Row() {
-                this.keyFace(k)
-              }
-              .justifyContent(FlexAlign.Center)
-              .alignItems(VerticalAlign.Center)
-              .layoutWeight(1)
-              .height('100%')
-              .borderRadius(8)
-              .backgroundColor(this.keyBg(k))
-              .onClick(() => this.onKey(k))
-            }, (k: string, j: number) => `${k}-${j}`)
+      // 键盘：与 App 内完全同一套布局（基础 + f 函数 + a-z），容器内上下滚动
+      // （卡片不支持 Scroll，用 List 实现滚动）
+      List({ space: 4 }) {
+        ListItem() {
+          Column({ space: 4 }) {
+            this.keyRows(BASIC_KEYS, 'basic')
           }
           .width('100%')
-          .layoutWeight(1)
-        }, (row: string[], i: number) => `r${i}`)
+        }
+
+        ListItem() {
+          Divider()
+            .strokeWidth(2)
+            .color('#33888888')
+            .margin({ top: 2, bottom: 2 })
+        }
+
+        ListItem() {
+          Column({ space: 4 }) {
+            this.keyRows(FUNC_KEYS, 'func')
+          }
+          .width('100%')
+        }
+
+        ListItem() {
+          Divider()
+            .strokeWidth(2)
+            .color('#33888888')
+            .margin({ top: 2, bottom: 2 })
+        }
+
+        ListItem() {
+          Column({ space: 4 }) {
+            this.keyRows(AZ_KEYS, 'az')
+          }
+          .width('100%')
+        }
       }
       .layoutWeight(1)
       .width('100%')
+      .edgeEffect(EdgeEffect.Spring)
     }
     .padding(10)
     .width('100%')
