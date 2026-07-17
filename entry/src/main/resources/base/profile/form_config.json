@@ -16,7 +16,10 @@
       "scheduledUpdateTime": "10:30",
       "updateDuration": 0,
       "defaultDimension": "2*2",
-      "supportDimensions": ["2*2", "2*4"]
+      "supportDimensions": [
+        "2*2",
+        "2*4"
+      ]
     },
     {
       "name": "widget_calc",
@@ -32,7 +35,9 @@
       "isDefault": false,
       "updateEnabled": false,
       "defaultDimension": "4*4",
-      "supportDimensions": ["4*4"]
+      "supportDimensions": [
+        "4*4"
+      ]
     },
     {
       "name": "widget_supercalc",
@@ -48,7 +53,9 @@
       "isDefault": false,
       "updateEnabled": false,
       "defaultDimension": "4*4",
-      "supportDimensions": ["4*4"]
+      "supportDimensions": [
+        "4*4"
+      ]
     },
     {
       "name": "widget_answer",
@@ -64,7 +71,9 @@
       "isDefault": false,
       "updateEnabled": false,
       "defaultDimension": "2*2",
-      "supportDimensions": ["2*2"]
+      "supportDimensions": [
+        "2*2"
+      ]
     },
     {
       "name": "widget_decision",
@@ -80,7 +89,9 @@
       "isDefault": false,
       "updateEnabled": false,
       "defaultDimension": "2*2",
-      "supportDimensions": ["2*2"]
+      "supportDimensions": [
+        "2*2"
+      ]
     },
     {
       "name": "widget_score",
@@ -96,7 +107,9 @@
       "isDefault": false,
       "updateEnabled": false,
       "defaultDimension": "2*4",
-      "supportDimensions": ["2*4"]
+      "supportDimensions": [
+        "2*4"
+      ]
     },
     {
       "name": "widget_water",
@@ -114,7 +127,9 @@
       "scheduledUpdateTime": "00:05",
       "updateDuration": 0,
       "defaultDimension": "2*2",
-      "supportDimensions": ["2*2"]
+      "supportDimensions": [
+        "2*2"
+      ]
     },
     {
       "name": "widget_anniversary",
@@ -132,7 +147,9 @@
       "scheduledUpdateTime": "00:05",
       "updateDuration": 0,
       "defaultDimension": "2*2",
-      "supportDimensions": ["2*2"]
+      "supportDimensions": [
+        "2*2"
+      ]
     },
     {
       "name": "widget_habit",
@@ -150,7 +167,9 @@
       "scheduledUpdateTime": "00:05",
       "updateDuration": 0,
       "defaultDimension": "2*2",
-      "supportDimensions": ["2*2"]
+      "supportDimensions": [
+        "2*2"
+      ]
     },
     {
       "name": "widget_todo",
@@ -168,7 +187,9 @@
       "scheduledUpdateTime": "00:05",
       "updateDuration": 0,
       "defaultDimension": "2*4",
-      "supportDimensions": ["2*4"]
+      "supportDimensions": [
+        "2*4"
+      ]
     },
     {
       "name": "widget_woodfish",
@@ -186,7 +207,9 @@
       "scheduledUpdateTime": "00:05",
       "updateDuration": 0,
       "defaultDimension": "2*2",
-      "supportDimensions": ["2*2"]
+      "supportDimensions": [
+        "2*2"
+      ]
     },
     {
       "name": "widget_ledger",
@@ -204,7 +227,9 @@
       "scheduledUpdateTime": "00:05",
       "updateDuration": 0,
       "defaultDimension": "2*2",
-      "supportDimensions": ["2*2"]
+      "supportDimensions": [
+        "2*2"
+      ]
     },
     {
       "name": "widget_calendar",
@@ -222,39 +247,9 @@
       "scheduledUpdateTime": "00:01",
       "updateDuration": 0,
       "defaultDimension": "2*2",
-      "supportDimensions": ["2*2"]
-    },
-    {
-      "name": "widget_coindice",
-      "displayName": "$string:coindice_card_name",
-      "description": "$string:coindice_card_desc",
-      "src": "./ets/widget/pages/CoinDiceCard.ets",
-      "uiSyntax": "arkts",
-      "window": {
-        "designWidth": 720,
-        "autoDesignWidth": true
-      },
-      "colorMode": "auto",
-      "isDefault": false,
-      "updateEnabled": false,
-      "defaultDimension": "2*2",
-      "supportDimensions": ["2*2"]
-    },
-    {
-      "name": "widget_rainbow",
-      "displayName": "$string:rainbow_card_name",
-      "description": "$string:rainbow_card_desc",
-      "src": "./ets/widget/pages/RainbowCard.ets",
-      "uiSyntax": "arkts",
-      "window": {
-        "designWidth": 720,
-        "autoDesignWidth": true
-      },
-      "colorMode": "auto",
-      "isDefault": false,
-      "updateEnabled": false,
-      "defaultDimension": "2*2",
-      "supportDimensions": ["2*2"]
+      "supportDimensions": [
+        "2*2"
+      ]
     },
     {
       "name": "widget_weather",
@@ -271,7 +266,9 @@
       "updateEnabled": true,
       "updateDuration": 2,
       "defaultDimension": "2*2",
-      "supportDimensions": ["2*2"]
+      "supportDimensions": [
+        "2*2"
+      ]
     },
     {
       "name": "widget_news",
@@ -289,7 +286,9 @@
       "scheduledUpdateTime": "07:30",
       "updateDuration": 0,
       "defaultDimension": "2*4",
-      "supportDimensions": ["2*4"]
+      "supportDimensions": [
+        "2*4"
+      ]
     },
     {
       "name": "widget_schedule",
@@ -307,7 +306,9 @@
       "scheduledUpdateTime": "00:05",
       "updateDuration": 0,
       "defaultDimension": "2*4",
-      "supportDimensions": ["2*4"]
+      "supportDimensions": [
+        "2*4"
+      ]
     }
   ]
 }

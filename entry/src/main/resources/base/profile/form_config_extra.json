@@ -1,0 +1,36 @@
+{
+  "forms": [
+    {
+      "name": "widget_coindice",
+      "displayName": "$string:coindice_card_name",
+      "description": "$string:coindice_card_desc",
+      "src": "./ets/widget/pages/CoinDiceCard.ets",
+      "uiSyntax": "arkts",
+      "window": {
+        "designWidth": 720,
+        "autoDesignWidth": true
+      },
+      "colorMode": "auto",
+      "isDefault": false,
+      "updateEnabled": false,
+      "defaultDimension": "2*2",
+      "supportDimensions": ["2*2"]
+    },
+    {
+      "name": "widget_rainbow",
+      "displayName": "$string:rainbow_card_name",
+      "description": "$string:rainbow_card_desc",
+      "src": "./ets/widget/pages/RainbowCard.ets",
+      "uiSyntax": "arkts",
+      "window": {
+        "designWidth": 720,
+        "autoDesignWidth": true
+      },
+      "colorMode": "auto",
+      "isDefault": false,
+      "updateEnabled": false,
+      "defaultDimension": "2*2",
+      "supportDimensions": ["2*2"]
+    }
+  ]
+}
