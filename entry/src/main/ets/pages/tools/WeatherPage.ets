@@ -1,4 +1,5 @@
 import { HttpUtil } from '../../utils/HttpUtil';
+import { ToolStore } from '../../utils/ToolStore';
 
 interface GeoResult {
   name: string;
@@ -56,6 +57,17 @@ export struct WeatherPage {
   @State loading: boolean = false;
   @State error: string = '';
 
+  async aboutToAppear(): Promise<void> {
+    // 恢复上次查询的城市
+    const ctx = this.getUIContext().getHostContext();
+    if (ctx !== undefined) {
+      const saved = await ToolStore.get(ctx, 'weather_city', '');
+      if (saved.length > 0) {
+        this.city = saved;
+      }
+    }
+  }
+
   async query(): Promise<void> {
     const city = this.city.trim();
     if (city.length === 0 || this.loading) {
@@ -93,6 +105,8 @@ export struct WeatherPage {
       this.current = wx.current;
       this.daily = wx.daily;
       this.cityShown = loc.admin1 !== undefined && loc.admin1 !== loc.name ? `${loc.admin1} · ${loc.name}` : loc.name;
+      // 记住城市偏好（天气服务卡片刷新时用同一城市）
+      ToolStore.save('weather_city', city);
     } catch (err) {
       this.error = '数据解析失败';
       console.error('weather failed:', JSON.stringify(err));

@@ -31,6 +31,10 @@
     { "name": "coindice_card_name", "value": "硬币骰子" },
     { "name": "coindice_card_desc", "value": "桌面摇骰子抛硬币" },
     { "name": "rainbow_card_name", "value": "彩虹屁" },
-    { "name": "rainbow_card_desc", "value": "夸人金句，点击换一句" }
+    { "name": "rainbow_card_desc", "value": "夸人金句，点击换一句" },
+    { "name": "weather_card_name", "value": "天气" },
+    { "name": "weather_card_desc", "value": "当前温度天气，定时刷新" },
+    { "name": "news_card_name", "value": "60 秒早报" },
+    { "name": "news_card_desc", "value": "今日要闻，每天早晨更新" }
   ]
 }
