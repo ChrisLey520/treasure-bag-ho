@@ -99,6 +99,33 @@ export struct SuperCalcPage {
   // ── 统计 ──
   @State statInput: string = '';
   @State statRows: ResultRow[] = [];
+  @State cursorOn: boolean = true;   // 光标闪烁相位
+  private blinkTimer: number = -1;
+
+  aboutToAppear(): void {
+    this.blinkTimer = setInterval(() => {
+      this.cursorOn = !this.cursorOn;
+    }, 530);
+  }
+
+  aboutToDisappear(): void {
+    if (this.blinkTimer >= 0) {
+      clearInterval(this.blinkTimer);
+    }
+  }
+
+  /** 光标竖条：高度与所在位置的字号/输入块一致，530ms 闪烁 */
+  @Builder
+  cursorBar(h: number, color: ResourceColor, yOff: number) {
+    Text('')
+      .width(2)
+      .height(h)
+      .borderRadius(1)
+      .backgroundColor(color)
+      .margin({ left: 1, right: 1 })
+      .offset({ x: 0, y: yOff })
+      .opacity(this.cursorOn ? 1 : 0)
+  }
 
   private parser: SciParser = new SciParser();
   private lastSpanTap: number = 0;
@@ -1049,27 +1076,19 @@ export struct SuperCalcPage {
                 Text('输入算式或方程…')
                   .fontSize(16)
                   .fontColor($r('app.color.text_secondary'))
-                Text('❘')
-                  .fontSize(24)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor($r('app.color.accent'))
+                this.cursorBar(26, $r('app.color.accent'), 0)
               } else {
                 ForEach(this.buildRender(), (it: RItem, idx: number) => {
                   if (it.cb) {
-                    Text('❘')
-                      .fontSize(it.level === 0 ? 24 : 15)
-                      .fontWeight(FontWeight.Bold)
-                      .fontColor($r('app.color.accent'))
-                      .offset({ x: 0, y: it.level === 1 ? -8 : (it.level === 2 ? 8 : 0) })
+                    // 光标高度对齐所在层级：正常位同主字号，上下标位同小块
+                    this.cursorBar(it.level === 0 ? 26 : 16, $r('app.color.accent'),
+                      it.level === 1 ? -8 : (it.level === 2 ? 8 : 0))
                   }
                   if (it.box) {
-                    // 参数输入块：选中态深橙+光标符
+                    // 参数输入块：选中态深橙+等高闪烁光标
                     Row() {
                       if (it.sel) {
-                        Text('❘')
-                          .fontSize(it.level === 0 ? 18 : 12)
-                          .fontWeight(FontWeight.Bold)
-                          .fontColor('#FF9F43')
+                        this.cursorBar(it.level === 0 ? 20 : 11, '#FF9F43', 0)
                       }
                     }
                     .justifyContent(FlexAlign.Center)
