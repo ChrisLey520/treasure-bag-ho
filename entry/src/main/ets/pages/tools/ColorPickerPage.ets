@@ -12,50 +12,39 @@ export struct ColorPickerPage {
   @State markY: number = -1;
   private imgW: number = 0;   // 容器显示宽 vp
   private imgH: number = 0;
-  private rbSwap: number = -1;   // readPixels 通道序自检：-1 未测 0 正常 1 红蓝对调
-  @State manualSwap: boolean = false;   // 手动纠正开关（自检失灵时兜底）
+  @State manualSwap: boolean = false;   // 手动纠正开关（点 ⇄ 切换）
   private raw0: number = 0;   // 最近一次读到的原始三字节（重算用）
   private raw1: number = 0;
   private raw2: number = 0;
 
   /**
-   * 运行时自检 readPixels 的字节序：构造一个已知颜色 (R=200,G=10,B=30)
-   * 的 RGBA PixelMap，读回看首字节是 R 还是 B。
-   * 平台怪癖：readPixels 输出可能固定为 BGRA 排列（与 PixelMap 声明格式无关），
-   * 元数据判断不可靠，只有实测可信。
+   * 逐像素读色不走 readPixels（其输出字节序在部分平台/图源上不可预测，
+   * 元数据与实测均不稳定）。改走 readPixelsToBuffer：整图导出为
+   * PixelMap 原生缓冲后自行按 RGBA_8888 解释（解码时已显式指定该格式，
+   * readPixelsToBuffer 按存储原样拷出，字节序确定）。首次读取整图缓存。
    */
-  private async detectRbSwap(): Promise<boolean> {
-    if (this.rbSwap >= 0) {
-      return this.rbSwap === 1;
+  private fullBuf?: Uint8Array = undefined;
+  private fullStride: number = 0;
+
+  private async ensureFullBuffer(): Promise<boolean> {
+    if (this.picked === undefined) {
+      return false;
+    }
+    if (this.fullBuf !== undefined) {
+      return true;
     }
     try {
-      const src = new ArrayBuffer(4);
-      const sa = new Uint8Array(src);
-      sa[0] = 200;
-      sa[1] = 10;
-      sa[2] = 30;
-      sa[3] = 255;
-      const pm = await image.createPixelMap(src, {
-        size: { width: 1, height: 1 },
-        pixelFormat: image.PixelMapFormat.RGBA_8888,
-        alphaType: image.AlphaType.OPAQUE
-      });
-      const out = new ArrayBuffer(4);
-      const area: image.PositionArea = {
-        pixels: out,
-        offset: 0,
-        stride: 4,
-        region: { size: { width: 1, height: 1 }, x: 0, y: 0 }
-      };
-      await pm.readPixels(area);
-      const oa = new Uint8Array(out);
-      this.rbSwap = (oa[0] === 30 && oa[2] === 200) ? 1 : 0;
-      pm.release();
+      const info = this.picked.pixelMap.getImageInfoSync();
+      const bytes = this.picked.pixelMap.getPixelBytesNumber();
+      const buf = new ArrayBuffer(bytes);
+      await this.picked.pixelMap.readPixelsToBuffer(buf);
+      this.fullBuf = new Uint8Array(buf);
+      this.fullStride = Math.floor(bytes / info.size.height);
+      return true;
     } catch (err) {
-      console.error('detect swap failed:', JSON.stringify(err));
-      this.rbSwap = 0;
+      console.error('readPixelsToBuffer failed:', JSON.stringify(err));
+      return false;
     }
-    return this.rbSwap === 1;
   }
 
   async choose(): Promise<void> {
@@ -68,6 +57,8 @@ export struct ColorPickerPage {
       this.rgbText = '';
       this.markX = -1;
       this.markY = -1;
+      this.fullBuf = undefined;   // 换图重新导出缓冲
+      this.fullStride = 0;
     }
     this.loading = false;
   }
@@ -88,27 +79,20 @@ export struct ColorPickerPage {
     }
     const px = Math.max(0, Math.min(this.picked.width - 1, Math.floor((x - offX) / scale)));
     const py = Math.max(0, Math.min(this.picked.height - 1, Math.floor((y - offY) / scale)));
-    try {
-      const buf = new ArrayBuffer(4);
-      const area: image.PositionArea = {
-        pixels: buf,
-        offset: 0,
-        stride: 4,
-        region: { size: { width: 1, height: 1 }, x: px, y: py }
-      };
-      await this.picked.pixelMap.readPixels(area);
-      const bytes = new Uint8Array(buf);
-      this.raw0 = bytes[0];
-      this.raw1 = bytes[1];
-      this.raw2 = bytes[2];
-      // 通道序由运行时自检决定（元数据不可靠），手动开关可再反转兜底
-      const swapped = await this.detectRbSwap();
-      this.applyColor(swapped !== this.manualSwap);
-      this.markX = x;
-      this.markY = y;
-    } catch (err) {
-      console.error('readPixels failed:', JSON.stringify(err));
+    if (!(await this.ensureFullBuffer())) {
+      return;
     }
+    const off = py * this.fullStride + px * 4;
+    const fb = this.fullBuf as Uint8Array;
+    if (off + 2 >= fb.length) {
+      return;
+    }
+    this.raw0 = fb[off];
+    this.raw1 = fb[off + 1];
+    this.raw2 = fb[off + 2];
+    this.applyColor(this.manualSwap);
+    this.markX = x;
+    this.markY = y;
   }
 
   /** 按当前通道序把原始字节转为颜色显示 */
@@ -206,8 +190,7 @@ export struct ColorPickerPage {
                   .onClick(() => {
                     // 颜色仍不对时点此手动红蓝互换
                     this.manualSwap = !this.manualSwap;
-                    const auto = this.rbSwap === 1;
-                    this.applyColor(auto !== this.manualSwap);
+                    this.applyColor(this.manualSwap);
                   })
               }
             }
