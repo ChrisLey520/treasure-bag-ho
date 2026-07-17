@@ -36,8 +36,7 @@ const BASIC_KEYS: string[][] = [
 const FUNC_KEYS: string[][] = [
   ['sin', 'cos', 'tan', '公倍', '公约'],
   ['arcsin', 'arccos', 'arctan', '|□|', '□!'],
-  ['∫□', 'lim', 'A□', 'C□', ''],
-  ['', '', '', '', '']
+  ['∫□', 'lim', 'A□', 'C□', '']
 ];
 
 /** 字母键盘：对齐参考 App，只保留常用字母 a-p 两行 */
