@@ -11,6 +11,8 @@
     { "name": "answer_card_name", "value": "答案之书" },
     { "name": "answer_card_desc", "value": "默念问题，点水晶球得答案" },
     { "name": "decision_card_name", "value": "随机决定" },
-    { "name": "decision_card_desc", "value": "选择困难，桌面一键决定" }
+    { "name": "decision_card_desc", "value": "选择困难，桌面一键决定" },
+    { "name": "score_card_name", "value": "记分牌" },
+    { "name": "score_card_desc", "value": "红蓝对战，桌面直接记分" }
   ]
 }

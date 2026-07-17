@@ -81,6 +81,22 @@
       "updateEnabled": false,
       "defaultDimension": "2*2",
       "supportDimensions": ["2*2"]
+    },
+    {
+      "name": "widget_score",
+      "displayName": "$string:score_card_name",
+      "description": "$string:score_card_desc",
+      "src": "./ets/widget/pages/ScoreCard.ets",
+      "uiSyntax": "arkts",
+      "window": {
+        "designWidth": 720,
+        "autoDesignWidth": true
+      },
+      "colorMode": "auto",
+      "isDefault": false,
+      "updateEnabled": false,
+      "defaultDimension": "2*2",
+      "supportDimensions": ["2*2", "2*4"]
     }
   ]
 }
