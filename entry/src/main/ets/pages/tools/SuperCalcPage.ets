@@ -769,17 +769,40 @@ export struct SuperCalcPage {
       i += 1;
     }
 
-    // 光标标注：落在参数块上→块选中；否则画在其前的元素上
+    // 光标标注：
+    // 1) 落在参数块上 → 块选中
+    // 2) 贴在左侧元素之后并继承其上下标层级（参数位连续输入时光标留在参数区内）
+    // 3) 否则画在其后元素之前；末尾兜底
     let done = false;
     for (let k = 0; k < items.length; k++) {
       const it = items[k];
-      if (!done && this.cursor <= it.start) {
-        if (it.box && this.cursor === it.start) {
-          it.sel = true;
-        } else {
-          it.cb = true;
-        }
+      if (it.box && this.cursor === it.start) {
+        it.sel = true;
         done = true;
+        break;
+      }
+    }
+    if (!done) {
+      for (let k = items.length - 1; k >= 0; k--) {
+        const it = items[k];
+        if (!it.box && it.s.length > 0 && it.end === this.cursor && it.level !== 0) {
+          items.splice(k + 1, 0, {
+            s: '', box: false, level: it.level,
+            start: this.cursor, end: this.cursor, cb: true, sel: false
+          } as RItem);
+          done = true;
+          break;
+        }
+      }
+    }
+    if (!done) {
+      for (let k = 0; k < items.length; k++) {
+        const it = items[k];
+        if (this.cursor <= it.start) {
+          it.cb = true;
+          done = true;
+          break;
+        }
       }
     }
     if (!done) {
