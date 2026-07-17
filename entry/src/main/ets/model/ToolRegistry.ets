@@ -18,6 +18,8 @@ export interface ToolInfo {
   emoji: string;       // 先用 emoji 做图标，后续换 symbol 资源
   category: ToolCategory;
   gradient: [string, string]; // 卡片渐变色（起、止）
+  glyph?: string;               // 自绘徽标字符（替代 emoji，与服务卡片徽标一致）
+  glyphGradient?: [string, string]; // 徽标渐变（缺省用卡片渐变）
 }
 
 export const TOOLS: ToolInfo[] = [
@@ -37,8 +39,10 @@ export const TOOLS: ToolInfo[] = [
   { id: 'relative', name: '亲戚称呼', desc: '过年不再叫错人', emoji: '👨‍👩‍👧', category: ToolCategory.QUERY, gradient: ['#FA709A', '#FEE140'] },
   { id: 'bmi', name: 'BMI 计算', desc: '身体质量指数', emoji: '⚖️', category: ToolCategory.QUERY, gradient: ['#30CFD0', '#330867'] },
   { id: 'timestamp', name: '时间戳转换', desc: 'Unix 时间戳互转', emoji: '⏱️', category: ToolCategory.DEV, gradient: ['#A8EDEA', '#5B6BF5'] },
-  { id: 'calculator', name: '计算器', desc: '日常四则运算', emoji: '🧮', category: ToolCategory.QUERY, gradient: ['#232526', '#414345'] },
-  { id: 'supercalc', name: '超级计算器', desc: '科学计算 · 函数绘图', emoji: '🧪', category: ToolCategory.QUERY, gradient: ['#42275A', '#734B6D'] },
+  { id: 'calculator', name: '计算器', desc: '日常四则运算', emoji: '🧮', category: ToolCategory.QUERY, gradient: ['#232526', '#414345'],
+    glyph: '＝', glyphGradient: ['#5B6BF5', '#8B5CF6'] },
+  { id: 'supercalc', name: '超级计算器', desc: '科学计算 · 函数绘图', emoji: '🧪', category: ToolCategory.QUERY, gradient: ['#42275A', '#734B6D'],
+    glyph: '√', glyphGradient: ['#42275A', '#734B6D'] },
   { id: 'calendar', name: '万年历', desc: '公历农历 · 干支生肖', emoji: '🗓️', category: ToolCategory.QUERY, gradient: ['#C33764', '#1D2671'] },
   // ── 文字/文案 ──
   { id: 'answer', name: '答案之书', desc: '让命运替你决定', emoji: '📖', category: ToolCategory.TEXT, gradient: ['#5B247A', '#1BCEDF'] },

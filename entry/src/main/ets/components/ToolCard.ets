@@ -11,8 +11,27 @@ export struct ToolCard {
   build() {
     Column({ space: 6 }) {
       Row() {
-        Text(this.tool.emoji)
-          .fontSize(30)
+        if (this.tool.glyph !== undefined) {
+          // 自绘徽标：渐变圆角方块 + 字符（与服务卡片品牌徽标一致）
+          Text(this.tool.glyph)
+            .fontSize(19)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(Color.White)
+            .textAlign(TextAlign.Center)
+            .width(32)
+            .height(32)
+            .borderRadius(9)
+            .linearGradient({
+              angle: 135,
+              colors: [[(this.tool.glyphGradient ?? this.tool.gradient)[0], 0],
+                [(this.tool.glyphGradient ?? this.tool.gradient)[1], 1]]
+            })
+            .border({ width: 1, color: '#4DFFFFFF' })
+            .shadow({ radius: 6, color: '#33000000', offsetY: 2 })
+        } else {
+          Text(this.tool.emoji)
+            .fontSize(30)
+        }
         Blank()
         if (this.isFavorite) {
           Text('★')
