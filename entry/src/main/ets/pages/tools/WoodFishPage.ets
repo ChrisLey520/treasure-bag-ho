@@ -1,5 +1,6 @@
 import { vibrator } from '@kit.SensorServiceKit';
 import { ToolStore } from '../../utils/ToolStore';
+import { WoodfishIcon } from '../../components/WoodfishIcon';
 
 const STORE_KEY = 'woodfish';
 
@@ -103,10 +104,12 @@ export struct WoodFishPage {
               .id(`float${this.floatKey}`)
           }
 
-          Text('🪵')
-            .fontSize(150)
-            .scale({ x: this.knocking ? 0.92 : 1, y: this.knocking ? 0.92 : 1 })
-            .animation({ duration: 80, curve: Curve.Sharp })
+          Column() {
+            WoodfishIcon(130)
+          }
+          .scale({ x: this.knocking ? 0.92 : 1, y: this.knocking ? 0.92 : 1 })
+          .animation({ duration: 80, curve: Curve.Sharp })
+          .margin({ top: 40 })
         }
         .width(220)
         .height(240)

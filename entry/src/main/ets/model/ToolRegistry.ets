@@ -69,7 +69,7 @@ export const TOOLS: ToolInfo[] = [
   { id: 'protractor', name: '角度尺', desc: '侧靠测角度', emoji: '📐', category: ToolCategory.LIFE, gradient: ['#603813', '#B29F94'] },
   { id: 'whitenoise', name: '白噪音', desc: '助眠 · 专注', emoji: '📻', category: ToolCategory.LIFE, gradient: ['#5C258D', '#4389A2'] },
   { id: 'water', name: '喝水提醒', desc: '打卡 + 定时提醒', emoji: '💧', category: ToolCategory.LIFE, gradient: ['#4FACFE', '#00F2FE'] },
-  { id: 'woodfish', name: '电子木鱼', desc: '功德 +1 烦恼 -1', emoji: '🪵', category: ToolCategory.LIFE, gradient: ['#B79891', '#94716B'] },
+  { id: 'woodfish', name: '电子木鱼', desc: '功德 +1 烦恼 -1', emoji: '🙏', category: ToolCategory.LIFE, gradient: ['#B79891', '#94716B'] },
   { id: 'coindice', name: '硬币 · 骰子', desc: '抛硬币 · 摇骰子', emoji: '🪙', category: ToolCategory.LIFE, gradient: ['#F7971E', '#FFD200'] },
   { id: 'stopwatch', name: '秒表', desc: '计时 · 计次', emoji: '⏱️', category: ToolCategory.LIFE, gradient: ['#348F50', '#56B4D3'] },
   { id: 'ledger', name: '极简记账', desc: '本月收支一目了然', emoji: '📒', category: ToolCategory.LIFE, gradient: ['#373B44', '#4286F4'] },

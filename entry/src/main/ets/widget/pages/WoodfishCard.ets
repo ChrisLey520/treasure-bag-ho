@@ -1,3 +1,5 @@
+import { WoodfishIcon } from '../../components/WoodfishIcon';
+
 let storageWoodfish = new LocalStorage();
 
 /**
@@ -23,7 +25,7 @@ struct WoodfishCard {
     Column({ space: 4 }) {
       // 品牌行
       Row({ space: 5 }) {
-        Text('🪵')
+        Text('🙏')
           .fontSize(12)
         Text('电子木鱼')
           .fontSize(11)
@@ -45,15 +47,16 @@ struct WoodfishCard {
 
       Blank()
 
-      // 木鱼本体：点击敲击
-      Text('🪵')
-        .fontSize(52)
-        .scale({
-          x: this.knockKey % 2 === 0 ? 1 : 0.88,
-          y: this.knockKey % 2 === 0 ? 1 : 0.88
-        })
-        .animation({ duration: 110, curve: Curve.EaseOut })
-        .onClick(() => this.knock())
+      // 木鱼本体（自绘）：点击敲击
+      Column() {
+        WoodfishIcon(46)
+      }
+      .scale({
+        x: this.knockKey % 2 === 0 ? 1 : 0.88,
+        y: this.knockKey % 2 === 0 ? 1 : 0.88
+      })
+      .animation({ duration: 110, curve: Curve.EaseOut })
+      .onClick(() => this.knock())
 
       Text(`今日功德 ${this.today}`)
         .fontSize(13)
