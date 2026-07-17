@@ -1,6 +1,6 @@
 import { vibrator } from '@kit.SensorServiceKit';
 import { ToolStore } from '../../utils/ToolStore';
-import { WoodfishIcon } from '../../components/WoodfishIcon';
+import { WoodfishBody, WoodfishMallet } from '../../components/WoodfishIcon';
 
 const STORE_KEY = 'woodfish';
 
@@ -104,15 +104,24 @@ export struct WoodFishPage {
               .id(`float${this.floatKey}`)
           }
 
+          // 鱼身：受击时轻微下压
           Column() {
-            WoodfishIcon(130)
+            WoodfishBody(130)
           }
-          .scale({ x: this.knocking ? 0.92 : 1, y: this.knocking ? 0.92 : 1 })
+          .scale({ x: this.knocking ? 0.95 : 1, y: this.knocking ? 0.92 : 1 })
           .animation({ duration: 80, curve: Curve.Sharp })
-          .margin({ top: 40 })
+          .offset({ x: -8, y: 46 })
+
+          // 敲槌：绕槌尾摆动，敲击时槌头砸向鱼身
+          Column() {
+            WoodfishMallet(130)
+          }
+          .rotate({ angle: this.knocking ? 34 : 0, centerX: '85%', centerY: '15%' })
+          .animation({ duration: 90, curve: Curve.Sharp })
+          .offset({ x: 52, y: -34 })
         }
-        .width(220)
-        .height(240)
+        .width(240)
+        .height(250)
         .onClick(() => this.knock())
 
         Text('点击木鱼 · 功德 +1 · 烦恼 -1')

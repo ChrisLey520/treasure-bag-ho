@@ -1,4 +1,5 @@
 import { ToolInfo } from '../model/ToolRegistry';
+import { WoodfishIcon } from './WoodfishIcon';
 
 /**
  * 工具卡片：干净卡面 + 渐变小图标块。
@@ -16,20 +17,35 @@ export struct ToolCard {
   build() {
     Column({ space: 10 }) {
       Row() {
-        // 图标块：渐变圆角方块，emoji 或自绘字符
-        Text(this.tool.glyph !== undefined ? this.tool.glyph : this.tool.emoji)
-          .fontSize(this.tool.glyph !== undefined ? 20 : 22)
-          .fontWeight(this.tool.glyph !== undefined ? FontWeight.Bold : FontWeight.Normal)
-          .fontColor(Color.White)
-          .textAlign(TextAlign.Center)
+        // 图标块：渐变圆角方块，自绘图形 / glyph 字符 / emoji
+        if (this.tool.id === 'woodfish') {
+          Column() {
+            WoodfishIcon(22)
+          }
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
           .width(40)
           .height(40)
           .borderRadius(12)
           .linearGradient({
             angle: 135,
-            colors: [[(this.tool.glyphGradient ?? this.tool.gradient)[0], 0],
-              [(this.tool.glyphGradient ?? this.tool.gradient)[1], 1]]
+            colors: [[this.tool.gradient[0], 0], [this.tool.gradient[1], 1]]
           })
+        } else {
+          Text(this.tool.glyph !== undefined ? this.tool.glyph : this.tool.emoji)
+            .fontSize(this.tool.glyph !== undefined ? 20 : 22)
+            .fontWeight(this.tool.glyph !== undefined ? FontWeight.Bold : FontWeight.Normal)
+            .fontColor(Color.White)
+            .textAlign(TextAlign.Center)
+            .width(40)
+            .height(40)
+            .borderRadius(12)
+            .linearGradient({
+              angle: 135,
+              colors: [[(this.tool.glyphGradient ?? this.tool.gradient)[0], 0],
+                [(this.tool.glyphGradient ?? this.tool.gradient)[1], 1]]
+            })
+        }
         Blank()
         if (this.isFavorite) {
           Text('★')

@@ -1,10 +1,12 @@
 /**
- * 自绘木鱼图标（Unicode 无木鱼 emoji，🪵 是木头）。
- * 造型：顶部小圆钮 + 圆润鱼身 + 嘴部开口 + 右侧敲槌。
- * 页面与服务卡片共用；size 为主体直径。
+ * 自绘木鱼（Unicode 无木鱼 emoji，🪵 是木头）。
+ * WoodfishBody：鱼身（圆润椭圆 + 顶钮 + 嘴部开口）
+ * WoodfishMallet：敲槌（槌杆 + 槌头），独立组件便于做敲击摆动动画
+ * WoodfishIcon：静态组合（工具卡图标等小尺寸场景用）
  */
+
 @Builder
-export function WoodfishIcon(size: number) {
+export function WoodfishBody(size: number) {
   Stack({ alignContent: Alignment.Center }) {
     // 鱼身：圆润椭圆，木色渐变
     Column()
@@ -28,21 +30,48 @@ export function WoodfishIcon(size: number) {
       .borderRadius(size * 0.08)
       .backgroundColor('#4A2E1D')
       .offset({ x: 0, y: size * 0.22 })
-    // 敲槌：右上斜放（槌杆 + 槌头）
+  }
+  .width(size * 1.05)
+  .height(size)
+}
+
+@Builder
+export function WoodfishMallet(size: number) {
+  Stack({ alignContent: Alignment.TopStart }) {
+    // 槌杆（斜放）
     Column()
-      .width(size * 0.5)
-      .height(size * 0.07)
+      .width(size * 0.52)
+      .height(size * 0.08)
       .borderRadius(size * 0.04)
       .backgroundColor('#6B4226')
-      .rotate({ angle: -40 })
-      .offset({ x: size * 0.38, y: -size * 0.28 })
+      .rotate({ angle: -40, centerX: '10%', centerY: '50%' })
+      .offset({ x: size * 0.12, y: size * 0.3 })
+    // 槌头（在杆的高端）
     Column()
-      .width(size * 0.16)
-      .height(size * 0.16)
-      .borderRadius(size * 0.08)
+      .width(size * 0.2)
+      .height(size * 0.2)
+      .borderRadius(size * 0.1)
       .backgroundColor('#8B5A3C')
-      .offset({ x: size * 0.56, y: -size * 0.42 })
+      .shadow({ radius: size * 0.05, color: '#33000000', offsetY: size * 0.02 })
+      .offset({ x: 0, y: size * 0.02 })
   }
-  .width(size * 1.3)
-  .height(size * 1.2)
+  .width(size * 0.62)
+  .height(size * 0.55)
+}
+
+/** 静态组合图标（工具卡等小尺寸场景），槌置于右上 */
+@Builder
+export function WoodfishIcon(size: number) {
+  Stack({ alignContent: Alignment.Center }) {
+    Column() {
+      WoodfishBody(size * 0.85)
+    }
+    .offset({ x: -size * 0.05, y: size * 0.08 })
+    Column() {
+      WoodfishMallet(size * 0.85)
+    }
+    .offset({ x: size * 0.3, y: -size * 0.28 })
+  }
+  .width(size * 1.25)
+  .height(size * 1.15)
 }

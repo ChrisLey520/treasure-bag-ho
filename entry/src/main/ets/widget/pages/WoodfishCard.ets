@@ -1,4 +1,4 @@
-import { WoodfishIcon } from '../../components/WoodfishIcon';
+import { WoodfishBody, WoodfishMallet } from '../../components/WoodfishIcon';
 
 let storageWoodfish = new LocalStorage();
 
@@ -47,15 +47,27 @@ struct WoodfishCard {
 
       Blank()
 
-      // 木鱼本体（自绘）：点击敲击
-      Column() {
-        WoodfishIcon(46)
+      // 木鱼本体（自绘，槌分离）：点击敲击，槌头砸向鱼身
+      Stack() {
+        Column() {
+          WoodfishBody(44)
+        }
+        .scale({
+          x: this.knockKey % 2 === 0 ? 1 : 0.95,
+          y: this.knockKey % 2 === 0 ? 1 : 0.92
+        })
+        .animation({ duration: 90, curve: Curve.Sharp })
+        .offset({ x: -4, y: 14 })
+
+        Column() {
+          WoodfishMallet(44)
+        }
+        .rotate({ angle: this.knockKey % 2 === 0 ? 0 : 34, centerX: '85%', centerY: '15%' })
+        .animation({ duration: 90, curve: Curve.Sharp })
+        .offset({ x: 18, y: -12 })
       }
-      .scale({
-        x: this.knockKey % 2 === 0 ? 1 : 0.88,
-        y: this.knockKey % 2 === 0 ? 1 : 0.88
-      })
-      .animation({ duration: 110, curve: Curve.EaseOut })
+      .width(80)
+      .height(76)
       .onClick(() => this.knock())
 
       Text(`今日功德 ${this.today}`)
