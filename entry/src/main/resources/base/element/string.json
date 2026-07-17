@@ -17,6 +17,14 @@
     { "name": "water_card_name", "value": "喝水提醒" },
     { "name": "water_card_desc", "value": "桌面打卡，今日喝水进度" },
     { "name": "anni_card_name", "value": "纪念日" },
-    { "name": "anni_card_desc", "value": "最近的倒数日，每天更新" }
+    { "name": "anni_card_desc", "value": "最近的倒数日，每天更新" },
+    { "name": "habit_card_name", "value": "习惯打卡" },
+    { "name": "habit_card_desc", "value": "连续天数，桌面一键打卡" },
+    { "name": "todo_card_name", "value": "待办事项" },
+    { "name": "todo_card_desc", "value": "桌面看待办，点圈完成" },
+    { "name": "woodfish_card_name", "value": "电子木鱼" },
+    { "name": "woodfish_card_desc", "value": "桌面敲木鱼，功德 +1" },
+    { "name": "ledger_card_name", "value": "极简记账" },
+    { "name": "ledger_card_desc", "value": "本月收支，一目了然" }
   ]
 }
