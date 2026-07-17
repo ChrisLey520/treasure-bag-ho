@@ -64,7 +64,7 @@ export class SciParser {
           throw new Error('除数不能为 0');
         }
         v /= d;
-      } else if (ch === '(' || ch === 'π' || ch === 'e' || this.isFuncStart(ch) || ch === '√' || ch === 'A' || ch === 'C') {
+      } else if (ch === '(' || ch === 'π' || ch === 'e' || this.isFuncStart(ch) || ch === '√' || ch === 'A' || ch === 'C' || ch === '∫') {
         // 隐式乘法
         v *= this.parseUnary();
       } else {
@@ -136,6 +136,37 @@ export class SciParser {
       this.pos += 1;
       return Math.PI;
     }
+    if (ch === '∞') {
+      this.pos += 1;
+      return Infinity;
+    }
+    // 定积分 ∫(下限,上限,f(x))：数值 Simpson 法
+    if (ch === '∫') {
+      this.pos += 1;
+      if (this.peek() !== '(') {
+        throw new Error('∫ 需要 (下限,上限,函数) 形式');
+      }
+      this.pos += 1;
+      const a = this.parseExpr();
+      if (this.peek() !== ',' && this.peek() !== '，') {
+        throw new Error('∫ 参数用逗号分隔');
+      }
+      this.pos += 1;
+      const b = this.parseExpr();
+      if (this.peek() !== ',' && this.peek() !== '，') {
+        throw new Error('∫ 需要三个参数：∫(下限,上限,函数)');
+      }
+      this.pos += 1;
+      const body = this.captureBalanced();
+      if (this.peek() !== ')') {
+        throw new Error('缺少右括号');
+      }
+      this.pos += 1;
+      if (body.trim().length === 0) {
+        throw new Error('被积函数为空');
+      }
+      return SciParser.integrate(a, b, body, this.degMode);
+    }
     if (ch === 'e') {
       this.pos += 1;
       return Math.E;
@@ -162,6 +193,28 @@ export class SciParser {
     }
     // 函数名
     if (this.isFuncStart(ch)) {
+      // 极限 lim(趋近点,f(x))：数值双侧逼近，趋近点可为 ±∞
+      if (this.src.startsWith('lim', this.pos)) {
+        this.pos += 3;
+        if (this.peek() !== '(') {
+          throw new Error('lim 需要 (趋近点,函数) 形式');
+        }
+        this.pos += 1;
+        const a = this.parseExpr();
+        if (this.peek() !== ',' && this.peek() !== '，') {
+          throw new Error('lim 参数用逗号分隔');
+        }
+        this.pos += 1;
+        const body = this.captureBalanced();
+        if (this.peek() !== ')') {
+          throw new Error('缺少右括号');
+        }
+        this.pos += 1;
+        if (body.trim().length === 0) {
+          throw new Error('极限函数为空');
+        }
+        return SciParser.limitOf(a, body, this.degMode);
+      }
       // 双参数函数：公倍 lcm(a,b) / 公约 gcd(a,b)
       const twoArg: string[] = ['lcm', 'gcd'];
       for (const fn of twoArg) {
@@ -320,6 +373,148 @@ export class SciParser {
 
   private static comb(n: number, r: number): number {
     return SciParser.perm(n, r) / SciParser.factorial(r);
+  }
+
+  /** 从当前位置截取到匹配右括号前的原始子串（不消费右括号），用于 ∫/lim 的函数体 */
+  private captureBalanced(): string {
+    let depth = 0;
+    const start = this.pos;
+    let i = this.pos;
+    while (i < this.src.length) {
+      const c = this.src[i];
+      if (c === '(') {
+        depth += 1;
+      } else if (c === ')') {
+        if (depth === 0) {
+          break;
+        }
+        depth -= 1;
+      }
+      i += 1;
+    }
+    this.pos = i;
+    return this.src.substring(start, i);
+  }
+
+  /** 定积分：自适应 Simpson 复合公式，2000 段 */
+  private static integrate(a: number, b: number, body: string, degMode: boolean): number {
+    if (!isFinite(a) || !isFinite(b)) {
+      throw new Error('∫ 上下限须为有限数');
+    }
+    if (a === b) {
+      return 0;
+    }
+    const p = new SciParser();
+    const f = (x: number): number => p.evalWithX(body, x, degMode);
+    const N = 2000;   // 偶数段
+    const h = (b - a) / N;
+    let sum = 0;
+    let bad = 0;
+    for (let i = 0; i <= N; i++) {
+      const x = a + h * i;
+      let y = NaN;
+      try {
+        y = f(x);
+      } catch (err) {
+        y = NaN;
+      }
+      if (isNaN(y) || !isFinite(y)) {
+        // 端点/奇点容错：内缩半步取值
+        try {
+          y = f(x + (i === 0 ? h : -h) * 1e-6);
+        } catch (err) {
+          y = NaN;
+        }
+        if (isNaN(y) || !isFinite(y)) {
+          bad += 1;
+          y = 0;
+        }
+      }
+      sum += y * (i === 0 || i === N ? 1 : (i % 2 === 1 ? 4 : 2));
+    }
+    if (bad > N / 10) {
+      throw new Error('被积函数在区间内大量无定义');
+    }
+    return sum * h / 3;
+  }
+
+  /** 极限：趋近点双侧递缩逼近（±∞ 时取递增大值），检测收敛与左右一致 */
+  private static limitOf(a: number, body: string, degMode: boolean): number {
+    const p = new SciParser();
+    const f = (x: number): number => {
+      try {
+        return p.evalWithX(body, x, degMode);
+      } catch (err) {
+        return NaN;
+      }
+    };
+    const seqAt = (xs: number[]): number => {
+      const vs: number[] = [];
+      for (const x of xs) {
+        const v = f(x);
+        if (!isNaN(v) && isFinite(v)) {
+          vs.push(v);
+        }
+      }
+      if (vs.length < 2) {
+        return NaN;
+      }
+      const last = vs[vs.length - 1];
+      const prev = vs[vs.length - 2];
+      const tol = 1e-6 * Math.max(1, Math.abs(last));
+      if (Math.abs(last - prev) < tol) {
+        return last;
+      }
+      // 发散判定：单调放大
+      if (Math.abs(last) > 1e10 && Math.abs(last) > Math.abs(prev) * 1.5) {
+        return last > 0 ? Infinity : -Infinity;
+      }
+      return NaN;
+    };
+    if (!isFinite(a)) {
+      const sign = a > 0 ? 1 : -1;
+      const xs: number[] = [];
+      for (let k = 2; k <= 8; k++) {
+        xs.push(sign * Math.pow(10, k));
+      }
+      const v = seqAt(xs);
+      if (isNaN(v)) {
+        throw new Error('极限不存在或不收敛');
+      }
+      return v;
+    }
+    const right: number[] = [];
+    const left: number[] = [];
+    for (let k = 2; k <= 9; k++) {
+      const d = Math.pow(10, -k);
+      right.push(a + d);
+      left.push(a - d);
+    }
+    const vr = seqAt(right);
+    const vl = seqAt(left);
+    if (isNaN(vr) && isNaN(vl)) {
+      throw new Error('极限不存在或不收敛');
+    }
+    if (isNaN(vr)) {
+      return vl;
+    }
+    if (isNaN(vl)) {
+      return vr;
+    }
+    if (!isFinite(vr) || !isFinite(vl)) {
+      if (vr === vl) {
+        return vr;
+      }
+      throw new Error('左右极限不一致（左 ' + (vl > 0 ? '+∞' : vl < 0 ? '−∞' : String(vl)) +
+        '，右 ' + (vr > 0 ? '+∞' : vr < 0 ? '−∞' : String(vr)) + '）');
+    }
+    const tol = 1e-5 * Math.max(1, Math.abs(vr), Math.abs(vl));
+    if (Math.abs(vr - vl) > tol) {
+      throw new Error(`左右极限不一致（左 ${vl.toPrecision(6)}，右 ${vr.toPrecision(6)}）`);
+    }
+    const v = (vr + vl) / 2;
+    // 修约到 8 位有效数字，抹去数值逼近尾差
+    return parseFloat(v.toPrecision(8));
   }
 
   private static factorial(n: number): number {

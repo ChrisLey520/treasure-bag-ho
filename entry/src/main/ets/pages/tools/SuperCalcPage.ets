@@ -135,7 +135,7 @@ export struct SuperCalcPage {
   private plotCtx: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
   private readonly PLOT_H: number = 240;
   private readonly FNS: string[] = ['arcsin', 'arccos', 'arctan', 'asin', 'acos', 'atan',
-    'log2', 'lcm(', 'gcd(', 'abs(', 'sin', 'cos', 'tan', 'abs', 'ln', 'log', 'ANS', 'A(', 'C('];
+    'log2', 'lcm(', 'gcd(', 'abs(', 'lim(', 'sin', 'cos', 'tan', 'abs', 'ln', 'log', 'ANS', 'A(', 'C(', '∫('];
 
   // ════════ 光标编辑 ════════
   insertText(s: string): void {
@@ -162,6 +162,36 @@ export struct SuperCalcPage {
     this.cursor = boxIdx >= 0 ? start + boxIdx : start + s.length;
     this.result = '';
     this.fracForm = '';
+  }
+
+  /** 剔除 ∫(…)/lim(…) 整段后检测自由变量（积分/极限变量不算未知数） */
+  private hasFreeVar(s: string): boolean {
+    let out = '';
+    let i = 0;
+    while (i < s.length) {
+      let hit = 0;
+      if (s[i] === '∫' && s[i + 1] === '(') {
+        hit = 2;
+      } else if (s.startsWith('lim(', i)) {
+        hit = 4;
+      }
+      if (hit > 0) {
+        i += hit;
+        let d = 1;
+        while (i < s.length && d > 0) {
+          if (s[i] === '(') {
+            d += 1;
+          } else if (s[i] === ')') {
+            d -= 1;
+          }
+          i += 1;
+        }
+        continue;
+      }
+      out += s[i];
+      i += 1;
+    }
+    return /[xyz]/.test(out.replace(/lcm|gcd|abs|arcsin|arccos|arctan|asin|acos|atan|ans/gi, ''));
   }
 
   /** 光标前是否已有可作为左操作数的内容（决定 ^ ! ÷ 是否补前置占位块） */
@@ -242,10 +272,10 @@ export struct SuperCalcPage {
       }
       for (let d = modeStack.length - 1; d >= 0; d--) {
         const m = modeStack[d];
-        if (m === 'sup' || m === 'Ar') {
+        if (m === 'sup' || m === 'Ar' || m === 'intHi') {
           return 1;
         }
-        if (m === 'logbase' || m === 'An') {
+        if (m === 'logbase' || m === 'An' || m === 'intLo' || m === 'limPt') {
           return 2;
         }
       }
@@ -304,6 +334,14 @@ export struct SuperCalcPage {
         i += 4;
         continue;
       }
+      if (matched === 'lim' && s[i + 3] === '(') {
+        // lim(趋近点,f)：渲染为 lim 下标 x→点，函数体正常位
+        push('lim', false, i, i + 3);
+        items.push({ s: 'x→', box: false, level: 2, start: i + 3, end: i + 4, cb: false, sel: false } as RItem);
+        modeStack.push('limPt');
+        i += 4;
+        continue;
+      }
       if (matched.length > 0) {
         push(matched, false, i, i + matched.length);
         i += matched.length;
@@ -312,6 +350,13 @@ export struct SuperCalcPage {
       if ((ch === 'A' || ch === 'C') && s[i + 1] === '(' && hasComma(i + 1)) {
         push(ch, false, i, i + 1);
         modeStack.push('An');
+        i += 2;
+        continue;
+      }
+      if (ch === '∫' && s[i + 1] === '(') {
+        // ∫(下限,上限,f)：下限下标、上限上标、函数体正常位
+        push('∫', false, i, i + 1);
+        modeStack.push('intLo');
         i += 2;
         continue;
       }
@@ -332,8 +377,10 @@ export struct SuperCalcPage {
           push('|', false, i, i + 1);
         } else if (m === '' || m === 'logarg') {
           push(')', false, i, i + 1);
+        } else if (m === 'intBody') {
+          push('dx', false, i, i + 1);
         }
-        // sup/An/Ar 的右括号隐藏
+        // sup/An/Ar/intLo/intHi/limPt/limBody 的右括号隐藏
         if (modeStack.length > 0) {
           modeStack.pop();
         }
@@ -347,6 +394,13 @@ export struct SuperCalcPage {
           push('(', false, i, i + 1);
         } else if (m === 'An') {
           modeStack[modeStack.length - 1] = 'Ar';
+        } else if (m === 'intLo') {
+          modeStack[modeStack.length - 1] = 'intHi';
+        } else if (m === 'intHi') {
+          modeStack[modeStack.length - 1] = 'intBody';
+        } else if (m === 'limPt') {
+          modeStack[modeStack.length - 1] = 'limBody';
+          push(' ', false, i, i + 1);
         } else {
           push(',', false, i, i + 1);
         }
@@ -427,7 +481,7 @@ export struct SuperCalcPage {
     // y= / f(x)= 前缀只是函数写法，不当方程；其余含 = 走方程求解
     const lhsKey = eqIdx >= 0 ? s.substring(0, eqIdx).replace(/\s/g, '').toLowerCase() : '';
     const isEquation = eqIdx >= 0 && lhsKey !== 'y' && lhsKey !== 'f(x)' && lhsKey !== 'fx' && lhsKey !== 'f';
-    const hasVar = /[xyz]/.test(s.replace(/lcm|gcd|abs|arcsin|arccos|arctan|asin|acos|atan|ans/gi, ''));
+    const hasVar = this.hasFreeVar(s);
 
     if (isEquation && !hasVar) {
       // 无变量等式：分别求两边，报成立/不成立
@@ -684,9 +738,12 @@ export struct SuperCalcPage {
       this.insertTemplate(`${k}(□)`);
       return;
     }
-    if (k === '∫□' || k === 'lim') {
-      this.result = `${k === 'lim' ? '极限' : '积分'}属于符号运算，暂未支持`;
-      this.fracForm = '';
+    if (k === '∫□') {
+      this.insertTemplate('∫(□,□,□)');
+      return;
+    }
+    if (k === 'lim') {
+      this.insertTemplate('lim(□,□)');
       return;
     }
     this.insertText(k);
