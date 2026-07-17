@@ -404,7 +404,7 @@ export struct SuperCalcPage {
 
   // ════════ 执行：含 = 求解方程，否则求值 ════════
   runCalc(): void {
-    const s = this.expression.trim();
+    let s = this.expression.trim();
     if (s.length === 0) {
       return;
     }
@@ -415,12 +415,37 @@ export struct SuperCalcPage {
       this.fracForm = '';
       return;
     }
+    // 末尾孤立的 = （右边为空）：按"按 = 出结果"处理，直接求值左边
+    let eqIdx = s.indexOf('=');
+    if (eqIdx >= 0 && s.substring(eqIdx + 1).trim().length === 0) {
+      s = s.substring(0, eqIdx).trim();
+      if (s.length === 0) {
+        return;
+      }
+      eqIdx = s.indexOf('=');
+    }
     // y= / f(x)= 前缀只是函数写法，不当方程；其余含 = 走方程求解
-    const eqIdx = s.indexOf('=');
     const lhsKey = eqIdx >= 0 ? s.substring(0, eqIdx).replace(/\s/g, '').toLowerCase() : '';
     const isEquation = eqIdx >= 0 && lhsKey !== 'y' && lhsKey !== 'f(x)' && lhsKey !== 'fx' && lhsKey !== 'f';
+    const hasVar = /[xyz]/.test(s.replace(/lcm|gcd|abs|arcsin|arccos|arctan|asin|acos|atan|ans/gi, ''));
 
-    if (isEquation || (eqIdx < 0 && s.includes('x'))) {
+    if (isEquation && !hasVar) {
+      // 无变量等式：分别求两边，报成立/不成立
+      try {
+        const l = this.parser.parse(normalizeFx(s.substring(0, eqIdx)), this.degMode, this.ans);
+        const r = this.parser.parse(normalizeFx(s.substring(eqIdx + 1)), this.degMode, this.ans);
+        const eq = Math.abs(l - r) < 1e-10 * Math.max(1, Math.abs(l), Math.abs(r));
+        this.result = eq
+          ? `等式成立：两边 = ${fmtResult(l)}`
+          : `等式不成立：左边 = ${fmtResult(l)}，右边 = ${fmtResult(r)}`;
+      } catch (err) {
+        this.result = (err as Error).message;
+      }
+      this.fracForm = '';
+      this.history = [{ expr: s, result: '已验证' } as HistoryItem, ...this.history].slice(0, 20);
+      return;
+    }
+    if (isEquation || (eqIdx < 0 && hasVar)) {
       this.result = this.solveEquation(s);
       this.fracForm = '';
       this.history = [{ expr: s, result: '已求解' } as HistoryItem, ...this.history].slice(0, 20);
