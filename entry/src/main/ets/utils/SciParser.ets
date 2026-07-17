@@ -531,10 +531,33 @@ export class SciParser {
     return r;
   }
 
+  /** 数值 → 可解析字面量（避免 1e-7 这类科学计数法字符串进解析器） */
+  private static numLit(v: number): string {
+    if (Math.abs(v) < 1e-12) {
+      return '(0)';
+    }
+    const abs = Math.abs(v);
+    let body = '';
+    if (abs >= 1e-12 && abs < 1e15) {
+      body = abs.toFixed(12).replace(/0+$/, '').replace(/\.$/, '');
+    } else {
+      body = abs.toFixed(0);
+    }
+    return v < 0 ? `(−${body})` : `(${body})`;
+  }
+
   /** 解析含变量 x 的表达式（绘图/求根用）：把 x 替换为数值后复用 parse */
   evalWithX(expr: string, x: number, degMode: boolean): number {
-    // 用括号包裹避免负数破坏语法
-    const substituted = expr.replace(/x/g, `(${x < 0 ? '−' + Math.abs(x) : x.toString()})`);
+    const substituted = expr.replace(/x/g, SciParser.numLit(x));
+    return this.parse(substituted, degMode, 0);
+  }
+
+  /** 多变量代入求值（方程组用）：x/y/z 全部替换 */
+  evalWithVars(expr: string, vx: number, vy: number, vz: number, degMode: boolean): number {
+    const substituted = expr
+      .replace(/x/g, SciParser.numLit(vx))
+      .replace(/y/g, SciParser.numLit(vy))
+      .replace(/z/g, SciParser.numLit(vz));
     return this.parse(substituted, degMode, 0);
   }
 }

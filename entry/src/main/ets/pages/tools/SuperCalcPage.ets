@@ -5,6 +5,11 @@ interface HistoryItem {
   result: string;
 }
 
+interface LinResult {
+  kind: string;      // unique / none / inf
+  sol: number[];
+}
+
 interface ResultRow {
   label: string;
   value: string;
@@ -44,7 +49,7 @@ const BASIC_KEYS: string[][] = [
   ['(', ')', '0', '.', '='],
   ['log₂', 'log₁₀', 'ln', '°', '′″'],
   ['<', '≤', '>', '≥', '∞'],
-  ['π', 'e', 'i', '', '']
+  ['π', 'e', 'i', ';', '']
 ];
 
 /** 函数键盘：对齐参考 App f 面板（□ 为占位符模板键） */
@@ -469,6 +474,17 @@ export struct SuperCalcPage {
       this.fracForm = '';
       return;
     }
+    // 方程组：分号分隔多个含 = 的式子
+    if (s.includes(';') || s.includes('；')) {
+      const eqs = s.split(/[;；]/).map((p: string): string => p.trim()).filter((p: string): boolean => p.length > 0);
+      if (eqs.length >= 2) {
+        this.result = this.solveSystem(eqs);
+        this.fracForm = '';
+        this.history = [{ expr: s, result: this.result.replace(/\n/g, '，') } as HistoryItem, ...this.history].slice(0, 20);
+        return;
+      }
+      s = eqs.length === 1 ? eqs[0] : s;
+    }
     // 末尾孤立的 = （右边为空）：按"按 = 出结果"处理，直接求值左边
     let eqIdx = s.indexOf('=');
     if (eqIdx >= 0 && s.substring(eqIdx + 1).trim().length === 0) {
@@ -516,6 +532,349 @@ export struct SuperCalcPage {
       this.result = (err as Error).message;
       this.fracForm = '';
     }
+  }
+
+  // ════════ 方程组求解 ════════
+  /**
+   * 分号分隔的方程组：先探测各方程对 x/y/z 是否线性，
+   * 全线性走高斯消元（含无解/无穷多解判定），
+   * 否则多起点牛顿-差分法数值求解
+   */
+  solveSystem(eqs: string[]): string {
+    // 每个方程移项为 f(x,y,z)=0
+    const fxs: string[] = [];
+    for (const eq of eqs) {
+      const idx = eq.indexOf('=');
+      if (idx < 0) {
+        return `"${eq}" 缺少 =，方程组每个式子都要是方程`;
+      }
+      fxs.push(`(${eq.substring(0, idx)})−(${eq.substring(idx + 1)})`);
+    }
+    // 出现的变量集合
+    const usedVars: string[] = [];
+    for (const v of ['x', 'y', 'z']) {
+      let hit = false;
+      for (const fx of fxs) {
+        if (fx.replace(/lcm|gcd|abs|arcsin|arccos|arctan|asin|acos|atan|ans/gi, '').includes(v)) {
+          hit = true;
+          break;
+        }
+      }
+      if (hit) {
+        usedVars.push(v);
+      }
+    }
+    if (usedVars.length === 0) {
+      return '方程组中没有未知数（支持 x y z）';
+    }
+    if (eqs.length < usedVars.length) {
+      return `${usedVars.length} 个未知数（${usedVars.join(' ')}）只有 ${eqs.length} 个方程，欠定`;
+    }
+
+    const F = (fx: string, vx: number, vy: number, vz: number): number =>
+      this.parser.evalWithVars(fx, vx, vy, vz, this.degMode);
+
+    // 线性探测：f(v)−f(0) 对每个变量是否恒为一次（用 2 点验证）
+    const n = usedVars.length;
+    const m = fxs.length;
+    const varIdx = (v: string): number => v === 'x' ? 0 : (v === 'y' ? 1 : 2);
+    let linear = true;
+    const A: number[][] = [];
+    const B: number[] = [];
+    try {
+      for (let r = 0; r < m; r++) {
+        const c0 = F(fxs[r], 0, 0, 0);
+        const row: number[] = [];
+        for (let c = 0; c < n; c++) {
+          const pt1: number[] = [0, 0, 0];
+          const pt2: number[] = [0, 0, 0];
+          pt1[varIdx(usedVars[c])] = 1;
+          pt2[varIdx(usedVars[c])] = 2;
+          const d1 = F(fxs[r], pt1[0], pt1[1], pt1[2]) - c0;
+          const d2 = F(fxs[r], pt2[0], pt2[1], pt2[2]) - c0;
+          if (Math.abs(d2 - 2 * d1) > 1e-9 * Math.max(1, Math.abs(d2))) {
+            linear = false;
+          }
+          row.push(d1);
+        }
+        // 交叉项检测：全变量同时取 1 应等于各系数和
+        const ptAll: number[] = [0, 0, 0];
+        for (const v of usedVars) {
+          ptAll[varIdx(v)] = 1;
+        }
+        let sumRow = c0;
+        for (const d of row) {
+          sumRow += d;
+        }
+        if (Math.abs(F(fxs[r], ptAll[0], ptAll[1], ptAll[2]) - sumRow) > 1e-9 * Math.max(1, Math.abs(sumRow))) {
+          linear = false;
+        }
+        A.push(row);
+        B.push(-c0);
+        if (!linear) {
+          break;
+        }
+      }
+    } catch (err) {
+      return `方程组无法求值：${(err as Error).message}`;
+    }
+
+    if (linear) {
+      const r = SuperCalcPage.gauss(A, B, n);
+      if (r.kind === 'none') {
+        return '线性方程组无解（矛盾方程）';
+      }
+      if (r.kind === 'inf') {
+        return '线性方程组有无穷多解（方程相关）';
+      }
+      const parts: string[] = [];
+      for (let c = 0; c < n; c++) {
+        const v = parseFloat(r.sol[c].toPrecision(10));
+        const fr = toFraction(v, 9999);
+        parts.push(`${usedVars[c]} = ${fmtResult(v)}${fr !== undefined ? `（${fr}）` : ''}`);
+      }
+      return `线性方程组：\n${parts.join('\n')}`;
+    }
+    return this.solveNonlinear(fxs, usedVars);
+  }
+
+  /** 高斯消元（列主元），返回唯一解/无解/无穷多解 */
+  private static gauss(A0: number[][], B0: number[], n: number): LinResult {
+    const m = A0.length;
+    // 增广矩阵
+    const M: number[][] = [];
+    for (let r = 0; r < m; r++) {
+      M.push([...A0[r], B0[r]]);
+    }
+    let rank = 0;
+    for (let col = 0; col < n && rank < m; col++) {
+      let piv = -1;
+      let best = 1e-10;
+      for (let r = rank; r < m; r++) {
+        if (Math.abs(M[r][col]) > best) {
+          best = Math.abs(M[r][col]);
+          piv = r;
+        }
+      }
+      if (piv < 0) {
+        continue;
+      }
+      const tmp = M[rank];
+      M[rank] = M[piv];
+      M[piv] = tmp;
+      for (let r = 0; r < m; r++) {
+        if (r !== rank && Math.abs(M[r][col]) > 1e-14) {
+          const k = M[r][col] / M[rank][col];
+          for (let c2 = col; c2 <= n; c2++) {
+            M[r][c2] -= k * M[rank][c2];
+          }
+        }
+      }
+      rank += 1;
+    }
+    // 矛盾行：0 = 非0
+    for (let r = 0; r < m; r++) {
+      let allZero = true;
+      for (let c = 0; c < n; c++) {
+        if (Math.abs(M[r][c]) > 1e-9) {
+          allZero = false;
+          break;
+        }
+      }
+      if (allZero && Math.abs(M[r][n]) > 1e-9) {
+        return { kind: 'none', sol: [] } as LinResult;
+      }
+    }
+    if (rank < n) {
+      return { kind: 'inf', sol: [] } as LinResult;
+    }
+    // 回代（行已消成对角占位形式，逐列找主元行）
+    const sol: number[] = new Array<number>(n).fill(0);
+    for (let col = 0; col < n; col++) {
+      for (let r = 0; r < m; r++) {
+        if (Math.abs(M[r][col]) > 1e-10) {
+          let isPivot = true;
+          for (let c2 = 0; c2 < col; c2++) {
+            if (Math.abs(M[r][c2]) > 1e-10) {
+              isPivot = false;
+              break;
+            }
+          }
+          if (isPivot) {
+            sol[col] = M[r][n] / M[r][col];
+            break;
+          }
+        }
+      }
+    }
+    return { kind: 'unique', sol: sol } as LinResult;
+  }
+
+  /** 非线性方程组：多起点牛顿法（数值雅可比 + 最小二乘伪逆方向） */
+  private solveNonlinear(fxs: string[], usedVars: string[]): string {
+    const n = usedVars.length;
+    const m = fxs.length;
+    const varIdx = (v: string): number => v === 'x' ? 0 : (v === 'y' ? 1 : 2);
+    const F = (vals: number[]): number[] => {
+      const full: number[] = [0, 0, 0];
+      for (let c = 0; c < n; c++) {
+        full[varIdx(usedVars[c])] = vals[c];
+      }
+      const out: number[] = [];
+      for (const fx of fxs) {
+        out.push(this.parser.evalWithVars(fx, full[0], full[1], full[2], this.degMode));
+      }
+      return out;
+    };
+    const starts: number[][] = [];
+    const seeds: number[] = [0, 1, -1, 2, -2, 5, -5, 0.5];
+    for (const s1 of seeds) {
+      if (n === 1) {
+        starts.push([s1]);
+      } else {
+        for (const s2 of seeds) {
+          if (n === 2) {
+            starts.push([s1, s2]);
+          } else {
+            starts.push([s1, s2, 1]);
+            starts.push([s1, s2, -1]);
+          }
+        }
+      }
+    }
+    const sols: number[][] = [];
+    for (const st of starts) {
+      let v = [...st];
+      let ok = false;
+      for (let iter = 0; iter < 60; iter++) {
+        let fv: number[] = [];
+        try {
+          fv = F(v);
+        } catch (err) {
+          break;
+        }
+        let norm = 0;
+        for (const y of fv) {
+          if (isNaN(y) || !isFinite(y)) {
+            norm = NaN;
+            break;
+          }
+          norm += y * y;
+        }
+        if (isNaN(norm)) {
+          break;
+        }
+        if (norm < 1e-20) {
+          ok = true;
+          break;
+        }
+        // 数值雅可比
+        const J: number[][] = [];
+        let jBad = false;
+        for (let r = 0; r < m; r++) {
+          J.push(new Array<number>(n).fill(0));
+        }
+        for (let c = 0; c < n; c++) {
+          const h = Math.max(1e-7, Math.abs(v[c]) * 1e-7);
+          const vp = [...v];
+          vp[c] += h;
+          try {
+            const fp = F(vp);
+            for (let r = 0; r < m; r++) {
+              J[r][c] = (fp[r] - fv[r]) / h;
+              if (isNaN(J[r][c]) || !isFinite(J[r][c])) {
+                jBad = true;
+              }
+            }
+          } catch (err) {
+            jBad = true;
+          }
+          if (jBad) {
+            break;
+          }
+        }
+        if (jBad) {
+          break;
+        }
+        // 正规方程 JᵀJ Δ = −Jᵀf（m≥n 时最小二乘）
+        const AtA: number[][] = [];
+        const Atb: number[] = [];
+        for (let c = 0; c < n; c++) {
+          AtA.push(new Array<number>(n).fill(0));
+          let s2 = 0;
+          for (let r = 0; r < m; r++) {
+            s2 += J[r][c] * fv[r];
+          }
+          Atb.push(-s2);
+        }
+        for (let c1 = 0; c1 < n; c1++) {
+          for (let c2 = 0; c2 < n; c2++) {
+            let s2 = 0;
+            for (let r = 0; r < m; r++) {
+              s2 += J[r][c1] * J[r][c2];
+            }
+            AtA[c1][c2] = s2;
+          }
+        }
+        const step = SuperCalcPage.gauss(AtA, Atb, n);
+        if (step.kind !== 'unique') {
+          break;
+        }
+        let moved = 0;
+        for (let c = 0; c < n; c++) {
+          const d = Math.max(-10, Math.min(10, step.sol[c]));   // 步长限幅
+          v[c] += d;
+          moved += Math.abs(d);
+        }
+        if (moved < 1e-13) {
+          ok = true;
+          break;
+        }
+      }
+      if (ok) {
+        // 验残差 + 去重
+        let res = 0;
+        try {
+          for (const y of F(v)) {
+            res += y * y;
+          }
+        } catch (err) {
+          continue;
+        }
+        if (res > 1e-12) {
+          continue;
+        }
+        let dup = false;
+        for (const s0 of sols) {
+          let d = 0;
+          for (let c = 0; c < n; c++) {
+            d += Math.abs(s0[c] - v[c]);
+          }
+          if (d < 1e-5) {
+            dup = true;
+            break;
+          }
+        }
+        if (!dup) {
+          sols.push(v.map((val: number): number => parseFloat((Math.abs(val) < 1e-10 ? 0 : val).toPrecision(8))));
+        }
+        if (sols.length >= 6) {
+          break;
+        }
+      }
+    }
+    if (sols.length === 0) {
+      return '非线性方程组：多起点迭代未收敛到解\n（可能无实数解，或解在 [-5,5] 初值范围外）';
+    }
+    const parts: string[] = [];
+    for (let si = 0; si < sols.length; si++) {
+      const one: string[] = [];
+      for (let c = 0; c < n; c++) {
+        one.push(`${usedVars[c]} = ${fmtResult(sols[si][c])}`);
+      }
+      parts.push(sols.length > 1 ? `解${si + 1}：${one.join('，')}` : one.join('\n'));
+    }
+    return `非线性方程组，${sols.length} 组解：\n${parts.join('\n')}`;
   }
 
   solveEquation(input: string): string {
@@ -1212,7 +1571,7 @@ export struct SuperCalcPage {
                 .fontWeight(FontWeight.Bold)
                 .fontColor($r('app.color.accent'))
                 .lineHeight(this.result.includes('\n') ? 24 : 30)
-                .maxLines(4)
+                .maxLines(8)
                 .textAlign(TextAlign.End)
                 .width('100%')
             }
