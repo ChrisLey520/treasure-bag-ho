@@ -35,31 +35,34 @@ export function WoodfishBody(size: number) {
   .height(size)
 }
 
+/**
+ * 敲槌：竖排 槌杆→槌头 直接相连（杆尾即头顶，不会分离），
+ * 使用方外层 rotate 摆放角度/做敲击动画（旋转中心取杆顶 50%,0%）
+ */
 @Builder
 export function WoodfishMallet(size: number) {
-  Stack({ alignContent: Alignment.TopStart }) {
-    // 槌杆（斜放）
+  Column() {
+    // 槌杆
     Column()
-      .width(size * 0.52)
-      .height(size * 0.08)
+      .width(size * 0.08)
+      .height(size * 0.42)
       .borderRadius(size * 0.04)
       .backgroundColor('#6B4226')
-      .rotate({ angle: -40, centerX: '10%', centerY: '50%' })
-      .offset({ x: size * 0.12, y: size * 0.3 })
-    // 槌头（在杆的高端）
+    // 槌头（紧贴杆尾）
     Column()
-      .width(size * 0.2)
-      .height(size * 0.2)
-      .borderRadius(size * 0.1)
+      .width(size * 0.22)
+      .height(size * 0.22)
+      .borderRadius(size * 0.11)
       .backgroundColor('#8B5A3C')
       .shadow({ radius: size * 0.05, color: '#33000000', offsetY: size * 0.02 })
-      .offset({ x: 0, y: size * 0.02 })
+      .margin({ top: -size * 0.02 })
   }
-  .width(size * 0.62)
-  .height(size * 0.55)
+  .alignItems(HorizontalAlign.Center)
+  .width(size * 0.22)
+  .height(size * 0.62)
 }
 
-/** 静态组合图标（工具卡等小尺寸场景），槌置于右上 */
+/** 静态组合图标（工具卡等小尺寸场景），槌斜置右上、槌头朝向鱼身 */
 @Builder
 export function WoodfishIcon(size: number) {
   Stack({ alignContent: Alignment.Center }) {
@@ -70,7 +73,8 @@ export function WoodfishIcon(size: number) {
     Column() {
       WoodfishMallet(size * 0.85)
     }
-    .offset({ x: size * 0.3, y: -size * 0.28 })
+    .rotate({ angle: -35, centerX: '50%', centerY: '10%' })
+    .offset({ x: size * 0.32, y: -size * 0.3 })
   }
   .width(size * 1.25)
   .height(size * 1.15)

@@ -112,13 +112,13 @@ export struct WoodFishPage {
           .animation({ duration: 80, curve: Curve.Sharp })
           .offset({ x: -8, y: 46 })
 
-          // 敲槌：绕槌尾摆动，敲击时槌头砸向鱼身
+          // 敲槌：整体（杆+头相连）绕杆顶摆动，敲击时槌头砸向鱼身
           Column() {
             WoodfishMallet(130)
           }
-          .rotate({ angle: this.knocking ? 34 : 0, centerX: '85%', centerY: '15%' })
+          .rotate({ angle: this.knocking ? -62 : -30, centerX: '50%', centerY: '8%' })
           .animation({ duration: 90, curve: Curve.Sharp })
-          .offset({ x: 52, y: -34 })
+          .offset({ x: 56, y: -40 })
         }
         .width(240)
         .height(250)
