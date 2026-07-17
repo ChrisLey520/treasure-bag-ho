@@ -53,8 +53,20 @@ export struct ColorPickerPage {
       };
       await this.picked.pixelMap.readPixels(area);
       const bytes = new Uint8Array(buf);
-      // RGBA_8888
-      const r = bytes[0], g = bytes[1], b = bytes[2];
+      // 按实际像素格式取通道（BGRA 红蓝对调过一次，务必判断格式）
+      const fmt = this.picked.pixelMap.getImageInfoSync().pixelFormat;
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      if (fmt === image.PixelMapFormat.BGRA_8888) {
+        b = bytes[0];
+        g = bytes[1];
+        r = bytes[2];
+      } else {
+        r = bytes[0];
+        g = bytes[1];
+        b = bytes[2];
+      }
       this.hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0').toUpperCase()).join('');
       this.rgbText = `rgb(${r}, ${g}, ${b})`;
       this.markX = x;

@@ -25,7 +25,11 @@ export class ImageUtil {
       const file = fileIo.openSync(uri, fileIo.OpenMode.READ_ONLY);
       const stat = fileIo.statSync(file.fd);
       const source = image.createImageSource(file.fd);
-      const pm = await source.createPixelMap({ editable: editable });
+      // 显式要求 RGBA_8888：解码默认可能是 BGRA_8888，逐像素读色会红蓝对调
+      const pm = await source.createPixelMap({
+        editable: editable,
+        desiredPixelFormat: image.PixelMapFormat.RGBA_8888
+      });
       const info = pm.getImageInfoSync();
       source.release();
       fileIo.closeSync(file);
