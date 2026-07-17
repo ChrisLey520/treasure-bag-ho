@@ -131,6 +131,7 @@ interface SchedData {
   table: SchedTable;
   courses: SchedCourseBase[];
   details: SchedCourseDetail[];
+  times?: string[][];
 }
 
 interface ScheduleCardData {
@@ -450,8 +451,14 @@ export default class EntryFormAbility extends FormExtensionAbility {
     }
     todays.sort((a: SchedCourseDetail, b: SchedCourseDetail): number => a.startNode - b.startNode);
     const top = todays.slice(0, 4);
-    const timeStr = (dt: SchedCourseDetail): string =>
-      dt.step > 1 ? `${dt.startNode}-${dt.startNode + dt.step - 1}节` : `${dt.startNode}节`;
+    // 有作息则显示上课时刻，否则显示节次
+    const times = data.times ?? [];
+    const timeStr = (dt: SchedCourseDetail): string => {
+      if (dt.startNode - 1 < times.length && times[dt.startNode - 1].length === 2) {
+        return times[dt.startNode - 1][0];
+      }
+      return dt.step > 1 ? `${dt.startNode}-${dt.startNode + dt.step - 1}节` : `${dt.startNode}节`;
+    };
     return {
       weekText: `第${week}周 ${week % 2 === 1 ? '单' : '双'}`,
       t0: top.length > 0 ? timeStr(top[0]) : '',

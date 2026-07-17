@@ -39,6 +39,7 @@ interface ScheduleData {
   table: ScheduleTable;
   courses: CourseBase[];
   details: CourseDetail[];
+  times?: string[][];   // 每节 [开始, 结束]，与 nodes 等长
 }
 
 /** WakeUp 导出第 1/2/3 行的结构 */
@@ -100,10 +101,12 @@ export struct SchedulePage {
   @State table: ScheduleTable = { name: '我的课表', startDate: mondayStr(), maxWeek: 20, nodes: 12 };
   @State courses: CourseBase[] = [];
   @State details: CourseDetail[] = [];
+  @State times: string[][] = [];   // 每节 [开始, 结束]（默认作息，可在设置里改）
   @State curWeek: number = 1;
   @State rev: number = 0;          // 数据版本号：进 ForEach key 破除旧缓存（否则改课后当前视图不刷新）
   @State showEdit: boolean = false;
   @State showSettings: boolean = false;
+  @State editTimeNode: number = -1;   // 正在编辑起止时间的节次（1 起，-1 无）
   @State toast: string = '';
   // ── 编辑表单状态（editDetailId < 0 为新增） ──
   @State editDetailId: number = -1;
@@ -130,11 +133,27 @@ export struct SchedulePage {
         this.table = data.table;
         this.courses = data.courses;
         this.details = data.details;
+        this.times = data.times ?? [];
       } catch (err) {
         console.error('parse schedule failed:', JSON.stringify(err));
       }
     }
+    this.ensureTimes();
     this.curWeek = this.weekOfToday();
+  }
+
+  /** times 与节数对齐：不足补默认作息，超出截断 */
+  private ensureTimes(): void {
+    const arr: string[][] = [];
+    for (let i = 0; i < this.table.nodes; i++) {
+      if (i < this.times.length && this.times[i].length === 2) {
+        arr.push(this.times[i]);
+      } else {
+        const t = DEFAULT_TIMES[i % DEFAULT_TIMES.length];
+        arr.push([t[0], t[1]]);
+      }
+    }
+    this.times = arr;
   }
 
   aboutToDisappear(): void {
@@ -145,7 +164,7 @@ export struct SchedulePage {
 
   persist(): void {
     this.rev += 1;   // 数据变更 → 网格 ForEach key 变化，强制重渲染
-    const data: ScheduleData = { table: this.table, courses: this.courses, details: this.details };
+    const data: ScheduleData = { table: this.table, courses: this.courses, details: this.details, times: this.times };
     ToolStore.save(STORE_KEY, JSON.stringify(data));
   }
 
@@ -316,7 +335,7 @@ export struct SchedulePage {
     const timeTable: WakeTimeTable = { id: 1, name: '默认', sameLen: true, courseLen: 45 };
     const times: WakeTimeDetail[] = [];
     for (let i = 0; i < this.table.nodes; i++) {
-      const t = DEFAULT_TIMES[i % DEFAULT_TIMES.length];
+      const t = i < this.times.length ? this.times[i] : DEFAULT_TIMES[i % DEFAULT_TIMES.length];
       times.push({ node: i + 1, startTime: t[0], endTime: t[1], timeTable: 1 });
     }
     const wtable: WakeTable = {
@@ -368,6 +387,32 @@ export struct SchedulePage {
         maxWeek: wtable.maxWeek ?? 20,
         nodes: Math.max(1, Math.min(wtable.nodes ?? 12, 16))
       };
+      // 第 2 行节次作息一并导入
+      try {
+        const wtimes = JSON.parse(lines[1]) as WakeTimeDetail[];
+        if (Array.isArray(wtimes) && wtimes.length > 0) {
+          const arr: string[][] = [];
+          for (let i = 0; i < this.table.nodes; i++) {
+            let hit: WakeTimeDetail | undefined = undefined;
+            for (const wt of wtimes) {
+              if (wt.node === i + 1) {
+                hit = wt;
+                break;
+              }
+            }
+            if (hit !== undefined) {
+              arr.push([hit.startTime, hit.endTime]);
+            } else {
+              const t = DEFAULT_TIMES[i % DEFAULT_TIMES.length];
+              arr.push([t[0], t[1]]);
+            }
+          }
+          this.times = arr;
+        }
+      } catch (err) {
+        console.error('parse times failed:', JSON.stringify(err));
+      }
+      this.ensureTimes();
       // 补齐字段缺省 & 颜色兜底
       this.courses = courses.map((c: CourseBase, i: number): CourseBase => ({
         id: c.id,
@@ -528,7 +573,7 @@ export struct SchedulePage {
           // ── 表头：周一~周日 ──
           Row({ space: 2 }) {
             Text('')
-              .width(24)
+              .width(30)
             ForEach(DAY_NAMES, (d: string, i: number) => {
               Text(d)
                 .fontSize(12)
@@ -543,16 +588,27 @@ export struct SchedulePage {
           // ── 课程网格 ──
           Scroll() {
             Row({ space: 2 }) {
-              // 节次栏
+              // 节次栏（节号 + 起止时间）
               Column({ space: 2 }) {
                 ForEach(this.nodeList(), (n: number) => {
-                  Text(n.toString())
-                    .fontSize(10)
-                    .fontColor($r('app.color.text_secondary'))
-                    .textAlign(TextAlign.Center)
-                    .width(24)
-                    .height(52)
-                }, (n: number) => `n${n}`)
+                  Column({ space: 1 }) {
+                    Text(n.toString())
+                      .fontSize(10)
+                      .fontWeight(FontWeight.Medium)
+                      .fontColor($r('app.color.text_secondary'))
+                    Text(this.timeOf(n, 0))
+                      .fontSize(7)
+                      .fontColor($r('app.color.text_secondary'))
+                      .opacity(0.8)
+                    Text(this.timeOf(n, 1))
+                      .fontSize(7)
+                      .fontColor($r('app.color.text_secondary'))
+                      .opacity(0.8)
+                  }
+                  .justifyContent(FlexAlign.Center)
+                  .width(30)
+                  .height(52)
+                }, (n: number) => `n${n}-${this.rev}`)
               }
               // 七天列
               ForEach([1, 2, 3, 4, 5, 6, 7], (day: number) => {
@@ -607,6 +663,29 @@ export struct SchedulePage {
       arr.push(i);
     }
     return arr;
+  }
+
+  /** 第 n 节的开始(idx 0)/结束(idx 1)时间 */
+  private timeOf(n: number, idx: number): string {
+    if (n - 1 < this.times.length && this.times[n - 1].length === 2) {
+      return this.times[n - 1][idx];
+    }
+    return DEFAULT_TIMES[(n - 1) % DEFAULT_TIMES.length][idx];
+  }
+
+  /** 'HH:mm' → Date（TimePicker 用） */
+  private timeAsDate(n: number, idx: number): Date {
+    const parts = this.timeOf(n, idx).split(':');
+    const d = new Date();
+    d.setHours(parseInt(parts[0]) || 8, parseInt(parts[1]) || 0, 0, 0);
+    return d;
+  }
+
+  private setTime(n: number, idx: number, v: Date): void {
+    this.ensureTimes();
+    const arr = this.times.map((t: string[]): string[] => [t[0], t[1]]);
+    arr[n - 1][idx] = `${v.getHours().toString().padStart(2, '0')}:${v.getMinutes().toString().padStart(2, '0')}`;
+    this.times = arr;
   }
 
   /** 课程块（跨 step 节整块渲染） */
@@ -811,7 +890,7 @@ export struct SchedulePage {
   @Builder
   settingsSheet() {
     Column() {
-      Column({ space: 12 }) {
+      Column({ space: 0 }) {
         Row() {
           Text('课表设置')
             .fontSize(17)
@@ -824,10 +903,15 @@ export struct SchedulePage {
             .padding(6)
             .onClick(() => {
               this.showSettings = false;
+              this.editTimeNode = -1;
               this.persist();
             })
         }
         .width('100%')
+        .padding({ bottom: 8 })
+
+        Scroll() {
+          Column({ space: 12 }) {
 
         Row({ space: 8 }) {
           Text('开学日期')
@@ -863,6 +947,74 @@ export struct SchedulePage {
         this.numRow('学期周数', 'maxWeek', 4, 30)
         this.numRow('每天节数', 'nodes', 4, 16)
 
+        // ── 节次作息：横向滑动，点某节展开 TimePicker 改起止 ──
+        Text('节次作息（点击某节修改起止时间）')
+          .fontSize(13)
+          .fontColor($r('app.color.text_secondary'))
+          .alignSelf(ItemAlign.Start)
+        Scroll() {
+          Row({ space: 6 }) {
+            ForEach(this.nodeList(), (n: number) => {
+              Column({ space: 1 }) {
+                Text(`第${n}节`)
+                  .fontSize(10)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor(this.editTimeNode === n ? Color.White : $r('app.color.text_primary'))
+                Text(this.timeOf(n, 0))
+                  .fontSize(9)
+                  .fontColor(this.editTimeNode === n ? '#E6FFFFFF' : $r('app.color.text_secondary'))
+                Text(this.timeOf(n, 1))
+                  .fontSize(9)
+                  .fontColor(this.editTimeNode === n ? '#E6FFFFFF' : $r('app.color.text_secondary'))
+              }
+              .alignItems(HorizontalAlign.Center)
+              .padding({ left: 10, right: 10, top: 6, bottom: 6 })
+              .borderRadius(10)
+              .backgroundColor(this.editTimeNode === n ? $r('app.color.accent') : $r('app.color.bg_page'))
+              .onClick(() => {
+                this.editTimeNode = this.editTimeNode === n ? -1 : n;
+              })
+            }, (n: number) => `tn${n}-${this.rev}-${this.editTimeNode === n ? '1' : '0'}`)
+          }
+        }
+        .scrollable(ScrollDirection.Horizontal)
+        .scrollBar(BarState.Off)
+        .width('100%')
+
+        if (this.editTimeNode > 0) {
+          Row({ space: 8 }) {
+            Column({ space: 2 }) {
+              Text('开始')
+                .fontSize(11)
+                .fontColor($r('app.color.text_secondary'))
+              TimePicker({ selected: this.timeAsDate(this.editTimeNode, 0) })
+                .useMilitaryTime(true)
+                .height(90)
+                .onChange((v: TimePickerResult) => {
+                  const d = new Date();
+                  d.setHours(v.hour ?? 8, v.minute ?? 0, 0, 0);
+                  this.setTime(this.editTimeNode, 0, d);
+                })
+            }
+            .layoutWeight(1)
+            Column({ space: 2 }) {
+              Text('结束')
+                .fontSize(11)
+                .fontColor($r('app.color.text_secondary'))
+              TimePicker({ selected: this.timeAsDate(this.editTimeNode, 1) })
+                .useMilitaryTime(true)
+                .height(90)
+                .onChange((v: TimePickerResult) => {
+                  const d = new Date();
+                  d.setHours(v.hour ?? 8, v.minute ?? 45, 0, 0);
+                  this.setTime(this.editTimeNode, 1, d);
+                })
+            }
+            .layoutWeight(1)
+          }
+          .width('100%')
+        }
+
         Button('完成')
           .width('100%')
           .height(44)
@@ -870,9 +1022,16 @@ export struct SchedulePage {
           .backgroundColor($r('app.color.accent'))
           .onClick(() => {
             this.showSettings = false;
+            this.editTimeNode = -1;
             this.curWeek = this.weekOfToday();
+            this.ensureTimes();
             this.persist();
           })
+          }
+          .width('100%')
+        }
+        .scrollBar(BarState.Off)
+        .constraintSize({ maxHeight: '72%' })
       }
       .padding(18)
       .borderRadius({ topLeft: 20, topRight: 20 })
@@ -888,6 +1047,7 @@ export struct SchedulePage {
     .backgroundColor('#66000000')
     .onClick(() => {
       this.showSettings = false;
+      this.editTimeNode = -1;
       this.persist();
     })
   }
