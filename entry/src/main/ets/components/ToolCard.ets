@@ -1,5 +1,14 @@
 import { ToolInfo } from '../model/ToolRegistry';
 import { WoodfishIcon } from './WoodfishIcon';
+import {
+  ColorPickerIcon,
+  MirrorIcon,
+  CompressIcon,
+  QrGenIcon,
+  QrScanIcon,
+  OcrIcon,
+  NineGridIcon
+} from './ImageToolIcons';
 
 /**
  * 工具卡片：干净卡面 + 渐变小图标块。
@@ -21,6 +30,97 @@ export struct ToolCard {
         if (this.tool.id === 'woodfish') {
           Column() {
             WoodfishIcon(22)
+          }
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+          .width(40)
+          .height(40)
+          .borderRadius(12)
+          .linearGradient({
+            angle: 135,
+            colors: [[this.tool.gradient[0], 0], [this.tool.gradient[1], 1]]
+          })
+        } else if (this.tool.id === 'colorpicker') {
+          Column() {
+            ColorPickerIcon(22)
+          }
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+          .width(40)
+          .height(40)
+          .borderRadius(12)
+          .linearGradient({
+            angle: 135,
+            colors: [[this.tool.gradient[0], 0], [this.tool.gradient[1], 1]]
+          })
+        } else if (this.tool.id === 'mirror') {
+          Column() {
+            MirrorIcon(22)
+          }
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+          .width(40)
+          .height(40)
+          .borderRadius(12)
+          .linearGradient({
+            angle: 135,
+            colors: [[this.tool.gradient[0], 0], [this.tool.gradient[1], 1]]
+          })
+        } else if (this.tool.id === 'compress') {
+          Column() {
+            CompressIcon(22)
+          }
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+          .width(40)
+          .height(40)
+          .borderRadius(12)
+          .linearGradient({
+            angle: 135,
+            colors: [[this.tool.gradient[0], 0], [this.tool.gradient[1], 1]]
+          })
+        } else if (this.tool.id === 'qrgen') {
+          Column() {
+            QrGenIcon(22)
+          }
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+          .width(40)
+          .height(40)
+          .borderRadius(12)
+          .linearGradient({
+            angle: 135,
+            colors: [[this.tool.gradient[0], 0], [this.tool.gradient[1], 1]]
+          })
+        } else if (this.tool.id === 'qrscan') {
+          Column() {
+            QrScanIcon(22)
+          }
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+          .width(40)
+          .height(40)
+          .borderRadius(12)
+          .linearGradient({
+            angle: 135,
+            colors: [[this.tool.gradient[0], 0], [this.tool.gradient[1], 1]]
+          })
+        } else if (this.tool.id === 'ocr') {
+          Column() {
+            OcrIcon(22)
+          }
+          .justifyContent(FlexAlign.Center)
+          .alignItems(HorizontalAlign.Center)
+          .width(40)
+          .height(40)
+          .borderRadius(12)
+          .linearGradient({
+            angle: 135,
+            colors: [[this.tool.gradient[0], 0], [this.tool.gradient[1], 1]]
+          })
+        } else if (this.tool.id === 'ninegrid') {
+          Column() {
+            NineGridIcon(22)
           }
           .justifyContent(FlexAlign.Center)
           .alignItems(HorizontalAlign.Center)
