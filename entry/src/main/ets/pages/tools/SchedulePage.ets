@@ -101,6 +101,7 @@ export struct SchedulePage {
   @State courses: CourseBase[] = [];
   @State details: CourseDetail[] = [];
   @State curWeek: number = 1;
+  @State rev: number = 0;          // 数据版本号：进 ForEach key 破除旧缓存（否则改课后当前视图不刷新）
   @State showEdit: boolean = false;
   @State showSettings: boolean = false;
   @State toast: string = '';
@@ -143,6 +144,7 @@ export struct SchedulePage {
   }
 
   persist(): void {
+    this.rev += 1;   // 数据变更 → 网格 ForEach key 变化，强制重渲染
     const data: ScheduleData = { table: this.table, courses: this.courses, details: this.details };
     ToolStore.save(STORE_KEY, JSON.stringify(data));
   }
@@ -395,9 +397,31 @@ export struct SchedulePage {
   }
 
   // ════════ UI ════════
-  /** 数字选择行：label - +  */
+  /** 数字字段读写（@Builder 值参数不参与状态观察，须传字段名内部直读 @State） */
+  private numVal(field: string): number {
+    if (field === 'startNode') { return this.fStartNode; }
+    if (field === 'step') { return this.fStep; }
+    if (field === 'startWeek') { return this.fStartWeek; }
+    if (field === 'endWeek') { return this.fEndWeek; }
+    if (field === 'maxWeek') { return this.table.maxWeek; }
+    return this.table.nodes;   // nodes
+  }
+
+  private numSet(field: string, v: number): void {
+    if (field === 'startNode') { this.fStartNode = v; }
+    else if (field === 'step') { this.fStep = v; }
+    else if (field === 'startWeek') { this.fStartWeek = v; }
+    else if (field === 'endWeek') { this.fEndWeek = v; }
+    else if (field === 'maxWeek') {
+      this.table = { name: this.table.name, startDate: this.table.startDate, maxWeek: v, nodes: this.table.nodes };
+    } else {
+      this.table = { name: this.table.name, startDate: this.table.startDate, maxWeek: this.table.maxWeek, nodes: v };
+    }
+  }
+
+  /** 数字选择行：label − 值 + */
   @Builder
-  numRow(label: string, value: number, min: number, max: number, onChange: (v: number) => void) {
+  numRow(label: string, field: string, min: number, max: number) {
     Row({ space: 8 }) {
       Text(label)
         .fontSize(13)
@@ -412,11 +436,11 @@ export struct SchedulePage {
         .borderRadius(10)
         .backgroundColor($r('app.color.bg_page'))
         .onClick(() => {
-          if (value > min) {
-            onChange(value - 1);
+          if (this.numVal(field) > min) {
+            this.numSet(field, this.numVal(field) - 1);
           }
         })
-      Text(value.toString())
+      Text(this.numVal(field).toString())
         .fontSize(15).fontWeight(FontWeight.Bold)
         .fontColor($r('app.color.text_primary'))
         .textAlign(TextAlign.Center)
@@ -429,8 +453,8 @@ export struct SchedulePage {
         .borderRadius(10)
         .backgroundColor($r('app.color.bg_page'))
         .onClick(() => {
-          if (value < max) {
-            onChange(value + 1);
+          if (this.numVal(field) < max) {
+            this.numSet(field, this.numVal(field) + 1);
           }
         })
     }
@@ -546,7 +570,7 @@ export struct SchedulePage {
                         .opacity(0.45)
                         .onClick(() => this.openAdd(day, node))
                     }
-                  }, (node: number) => `d${day}n${node}-${this.curWeek}`)
+                  }, (node: number) => `d${day}n${node}-${this.curWeek}-${this.rev}`)
                 }
                 .layoutWeight(1)
               }, (day: number) => `day${day}`)
@@ -720,10 +744,10 @@ export struct SchedulePage {
         }
         .width('100%')
 
-        this.numRow('开始节', this.fStartNode, 1, this.table.nodes, (v: number): void => { this.fStartNode = v; })
-        this.numRow('连续节数', this.fStep, 1, 6, (v: number): void => { this.fStep = v; })
-        this.numRow('开始周', this.fStartWeek, 1, this.table.maxWeek, (v: number): void => { this.fStartWeek = v; })
-        this.numRow('结束周', this.fEndWeek, 1, this.table.maxWeek, (v: number): void => { this.fEndWeek = v; })
+        this.numRow('开始节', 'startNode', 1, this.table.nodes)
+        this.numRow('连续节数', 'step', 1, 6)
+        this.numRow('开始周', 'startWeek', 1, this.table.maxWeek)
+        this.numRow('结束周', 'endWeek', 1, this.table.maxWeek)
 
         // 单双周
         Row({ space: 6 }) {
@@ -833,12 +857,8 @@ export struct SchedulePage {
           .fontSize(10)
           .fontColor($r('app.color.text_secondary'))
 
-        this.numRow('学期周数', this.table.maxWeek, 4, 30, (v: number): void => {
-          this.table = { name: this.table.name, startDate: this.table.startDate, maxWeek: v, nodes: this.table.nodes };
-        })
-        this.numRow('每天节数', this.table.nodes, 4, 16, (v: number): void => {
-          this.table = { name: this.table.name, startDate: this.table.startDate, maxWeek: this.table.maxWeek, nodes: v };
-        })
+        this.numRow('学期周数', 'maxWeek', 4, 30)
+        this.numRow('每天节数', 'nodes', 4, 16)
 
         Button('完成')
           .width('100%')
