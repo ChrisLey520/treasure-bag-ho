@@ -107,6 +107,14 @@ export struct SchedulePage {
   @State showEdit: boolean = false;
   @State showSettings: boolean = false;
   @State editTimeNode: number = -1;   // 正在编辑起止时间的节次（1 起，-1 无）
+  // ── 作息快速生成参数 ──
+  @State genStart: string = '08:00';  // 首节开始
+  @State genLen: number = 45;         // 每节时长（分钟）
+  @State genBreak: number = 10;       // 课间休息（分钟）
+  @State genLunchAfter: number = 4;   // 第 N 节后午休（0 不设）
+  @State genLunchMin: number = 120;   // 午休时长
+  @State genDinnerAfter: number = 8;  // 第 N 节后晚休（0 不设）
+  @State genDinnerMin: number = 80;   // 晚休时长
   @State toast: string = '';
   // ── 编辑表单状态（editDetailId < 0 为新增） ──
   @State editDetailId: number = -1;
@@ -449,6 +457,7 @@ export struct SchedulePage {
     if (field === 'startWeek') { return this.fStartWeek; }
     if (field === 'endWeek') { return this.fEndWeek; }
     if (field === 'maxWeek') { return this.table.maxWeek; }
+    if (field.startsWith('gen')) { return this.genVal(field); }
     return this.table.nodes;   // nodes
   }
 
@@ -457,6 +466,7 @@ export struct SchedulePage {
     else if (field === 'step') { this.fStep = v; }
     else if (field === 'startWeek') { this.fStartWeek = v; }
     else if (field === 'endWeek') { this.fEndWeek = v; }
+    else if (field.startsWith('gen')) { this.genSet(field, v); }
     else if (field === 'maxWeek') {
       this.table = { name: this.table.name, startDate: this.table.startDate, maxWeek: v, nodes: this.table.nodes };
     } else {
@@ -464,14 +474,21 @@ export struct SchedulePage {
     }
   }
 
-  /** 数字选择行：label − 值 + */
+  /** 数字选择行支持步长（分钟类参数用 5 分钟步进） */
+  private numStep(field: string): number {
+    if (field === 'genLunchMin' || field === 'genDinnerMin') { return 10; }
+    if (field === 'genLen' || field === 'genBreak') { return 5; }
+    return 1;
+  }
+
+  /** 数字选择行：label − 值 + （gen* 分钟参数按 5/10 步进） */
   @Builder
   numRow(label: string, field: string, min: number, max: number) {
     Row({ space: 8 }) {
       Text(label)
         .fontSize(13)
         .fontColor($r('app.color.text_secondary'))
-        .width(64)
+        .width(80)
       Blank()
       Text('−')
         .fontSize(17).fontWeight(FontWeight.Bold)
@@ -481,8 +498,9 @@ export struct SchedulePage {
         .borderRadius(10)
         .backgroundColor($r('app.color.bg_page'))
         .onClick(() => {
-          if (this.numVal(field) > min) {
-            this.numSet(field, this.numVal(field) - 1);
+          const step = this.numStep(field);
+          if (this.numVal(field) - step >= min) {
+            this.numSet(field, this.numVal(field) - step);
           }
         })
       Text(this.numVal(field).toString())
@@ -498,8 +516,9 @@ export struct SchedulePage {
         .borderRadius(10)
         .backgroundColor($r('app.color.bg_page'))
         .onClick(() => {
-          if (this.numVal(field) < max) {
-            this.numSet(field, this.numVal(field) + 1);
+          const step = this.numStep(field);
+          if (this.numVal(field) + step <= max) {
+            this.numSet(field, this.numVal(field) + step);
           }
         })
     }
@@ -681,11 +700,63 @@ export struct SchedulePage {
     return d;
   }
 
+  private genStartDate(): Date {
+    const parts = this.genStart.split(':');
+    const d = new Date();
+    d.setHours(parseInt(parts[0]) || 8, parseInt(parts[1]) || 0, 0, 0);
+    return d;
+  }
+
   private setTime(n: number, idx: number, v: Date): void {
     this.ensureTimes();
     const arr = this.times.map((t: string[]): string[] => [t[0], t[1]]);
     arr[n - 1][idx] = `${v.getHours().toString().padStart(2, '0')}:${v.getMinutes().toString().padStart(2, '0')}`;
     this.times = arr;
+  }
+
+  /**
+   * 一键生成全学期作息：首节开始 + 每节时长 + 课间 + 午/晚休，
+   * 生成一次全学期（所有周、每天）通用
+   */
+  private generateTimes(): void {
+    const parts = this.genStart.split(':');
+    let cur = (parseInt(parts[0]) || 8) * 60 + (parseInt(parts[1]) || 0);
+    const fmt = (m: number): string =>
+      `${Math.floor(m / 60) % 24}`.padStart(2, '0') + ':' + `${m % 60}`.padStart(2, '0');
+    const arr: string[][] = [];
+    for (let n = 1; n <= this.table.nodes; n++) {
+      const s = cur;
+      const e = cur + this.genLen;
+      arr.push([fmt(s), fmt(e)]);
+      cur = e + this.genBreak;
+      if (this.genLunchAfter > 0 && n === this.genLunchAfter) {
+        cur = e + this.genLunchMin;
+      } else if (this.genDinnerAfter > 0 && n === this.genDinnerAfter) {
+        cur = e + this.genDinnerMin;
+      }
+    }
+    this.times = arr;
+    this.persist();
+    this.showToast('已生成全学期作息，可再逐节微调');
+  }
+
+  /** 作息生成参数读写（numRow 复用） */
+  private genVal(field: string): number {
+    if (field === 'genLen') { return this.genLen; }
+    if (field === 'genBreak') { return this.genBreak; }
+    if (field === 'genLunchAfter') { return this.genLunchAfter; }
+    if (field === 'genLunchMin') { return this.genLunchMin; }
+    if (field === 'genDinnerAfter') { return this.genDinnerAfter; }
+    return this.genDinnerMin;
+  }
+
+  private genSet(field: string, v: number): void {
+    if (field === 'genLen') { this.genLen = v; }
+    else if (field === 'genBreak') { this.genBreak = v; }
+    else if (field === 'genLunchAfter') { this.genLunchAfter = v; }
+    else if (field === 'genLunchMin') { this.genLunchMin = v; }
+    else if (field === 'genDinnerAfter') { this.genDinnerAfter = v; }
+    else { this.genDinnerMin = v; }
   }
 
   /** 课程块（跨 step 节整块渲染） */
@@ -947,8 +1018,47 @@ export struct SchedulePage {
         this.numRow('学期周数', 'maxWeek', 4, 30)
         this.numRow('每天节数', 'nodes', 4, 16)
 
-        // ── 节次作息：横向滑动，点某节展开 TimePicker 改起止 ──
-        Text('节次作息（点击某节修改起止时间）')
+        Divider().strokeWidth(0.5).color('#33888888')
+
+        // ── 作息一键生成：编辑一次全学期通用 ──
+        Text('作息生成（编辑一次，全学期每天通用）')
+          .fontSize(13)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('app.color.text_primary'))
+          .alignSelf(ItemAlign.Start)
+        Row({ space: 8 }) {
+          Text('首节开始')
+            .fontSize(13)
+            .fontColor($r('app.color.text_secondary'))
+            .width(80)
+          Blank()
+          TimePicker({ selected: this.genStartDate() })
+            .useMilitaryTime(true)
+            .height(60)
+            .width(150)
+            .onChange((v: TimePickerResult) => {
+              this.genStart = `${(v.hour ?? 8).toString().padStart(2, '0')}:${(v.minute ?? 0).toString().padStart(2, '0')}`;
+            })
+        }
+        .width('100%')
+        this.numRow('每节时长(分)', 'genLen', 30, 120)
+        this.numRow('课间休息(分)', 'genBreak', 0, 30)
+        this.numRow('午休在第N节后', 'genLunchAfter', 0, 8)
+        this.numRow('午休时长(分)', 'genLunchMin', 30, 240)
+        this.numRow('晚休在第N节后', 'genDinnerAfter', 0, 12)
+        this.numRow('晚休时长(分)', 'genDinnerMin', 30, 240)
+        Button('按以上参数生成全学期作息')
+          .width('100%')
+          .height(40)
+          .fontSize(14)
+          .fontColor($r('app.color.accent'))
+          .backgroundColor('#1A5B6BF5')
+          .onClick(() => this.generateTimes())
+
+        Divider().strokeWidth(0.5).color('#33888888')
+
+        // ── 节次作息微调：横向滑动，点某节展开 TimePicker 改起止 ──
+        Text('逐节微调（点击某节修改起止时间）')
           .fontSize(13)
           .fontColor($r('app.color.text_secondary'))
           .alignSelf(ItemAlign.Start)
