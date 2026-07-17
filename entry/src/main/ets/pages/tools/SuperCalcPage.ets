@@ -132,6 +132,280 @@ export struct SuperCalcPage {
       .opacity(this.cursorOn ? 1 : 0)
   }
 
+  /** 表达式数学式富渲染（计算/绘图共用）：上下标、参数块、点击定位光标 */
+  @Builder
+  exprRender() {
+    Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap,
+      justifyContent: this.mode === 1 ? FlexAlign.Start : FlexAlign.End, alignItems: ItemAlign.Center }) {
+      if (this.expression.length === 0) {
+        Text(this.mode === 1 ? '输入 f(x)，如 sin(x)、x^2−2x+1…' : '输入算式或方程…')
+          .fontSize(16)
+          .fontColor($r('app.color.text_secondary'))
+        this.cursorBar(26, $r('app.color.accent'), 0)
+      } else {
+        ForEach(this.buildRender(), (it: RItem, idx: number) => {
+          if (it.cb) {
+            // 光标高度对齐所在层级：正常位同主字号，上下标位同小块
+            this.cursorBar(it.level === 0 ? 26 : 16, $r('app.color.accent'),
+              it.level === 1 ? -8 : (it.level === 2 ? 8 : 0))
+          }
+          if (it.box) {
+            // 参数输入块：选中态深橙+等高闪烁光标
+            Row() {
+              if (it.sel) {
+                this.cursorBar(it.level === 0 ? 20 : 11, '#FF9F43', 0)
+              }
+            }
+            .justifyContent(FlexAlign.Center)
+            .width(it.level === 0 ? 22 : 14)
+            .height(it.level === 0 ? 26 : 16)
+            .borderRadius(4)
+            .backgroundColor(it.sel ? '#66FF9F43' : '#2EFF9F43')
+            .border({ width: 1, color: it.sel ? '#FF9F43' : '#66FF9F43' })
+            .margin({ left: 1, right: 1 })
+            .offset({ x: 0, y: it.level === 1 ? -8 : (it.level === 2 ? 8 : 0) })
+            .onClick(() => {
+              this.lastSpanTap = Date.now();
+              this.cursor = it.start;
+            })
+          } else if (it.s.length > 0) {
+            Text(it.s)
+              .fontSize(it.level === 0 ? 24 : 14)
+              .fontColor($r('app.color.text_primary'))
+              .offset({ x: 0, y: it.level === 1 ? -8 : (it.level === 2 ? 8 : 0) })
+              .onClick(() => {
+                this.lastSpanTap = Date.now();
+                this.cursor = it.end;
+              })
+          }
+        }, (it: RItem, idx: number) => `${idx}-${it.s}-${it.box}-${it.level}-${it.cb}-${it.sel}`)
+      }
+    }
+    .width('100%')
+    .onClick(() => {
+      // 点击空白处：光标移到末尾（元素点击 100ms 内不抢占）
+      if (Date.now() - this.lastSpanTap > 100) {
+        this.cursor = this.expression.length;
+      }
+    })
+  }
+
+  /** 编辑工具条（计算/绘图共用）：清空 主键(=/绘制) ◀ ▶ 退格 */
+  @Builder
+  editToolbar() {
+    Row({ space: 8 }) {
+      Text('🗑')
+        .fontSize(16)
+        .textAlign(TextAlign.Center)
+        .layoutWeight(1).height(42)
+        .borderRadius(12)
+        .backgroundColor('#33F5576C')
+        .onClick(() => this.clearAll())
+      Text(this.mode === 1 ? '绘制' : '=')
+        .fontSize(this.mode === 1 ? 16 : 22).fontWeight(FontWeight.Bold)
+        .fontColor(Color.White)
+        .textAlign(TextAlign.Center)
+        .layoutWeight(2).height(42)
+        .borderRadius(12)
+        .backgroundColor($r('app.color.accent'))
+        .onClick(() => {
+          if (this.mode === 1) {
+            this.plotFromExpr();
+          } else {
+            this.onEquals();
+          }
+        })
+      Text('◀')
+        .fontSize(16)
+        .fontColor($r('app.color.text_primary'))
+        .textAlign(TextAlign.Center)
+        .layoutWeight(1).height(42)
+        .borderRadius(12)
+        .backgroundColor($r('app.color.bg_card'))
+        .onClick(() => this.moveCursor(-1))
+      Text('▶')
+        .fontSize(16)
+        .fontColor($r('app.color.text_primary'))
+        .textAlign(TextAlign.Center)
+        .layoutWeight(1).height(42)
+        .borderRadius(12)
+        .backgroundColor($r('app.color.bg_card'))
+        .onClick(() => this.moveCursor(1))
+      Text('⌫')
+        .fontSize(17)
+        .fontColor('#7B88FF')
+        .textAlign(TextAlign.Center)
+        .layoutWeight(1).height(42)
+        .borderRadius(12)
+        .backgroundColor('#2E3140')
+        .onClick(() => this.backspace())
+    }
+    .width('100%')
+  }
+
+  /** 侧边栏锚点（+−×÷ / f / a-z / f(x)）+ 连续滚动键盘面板（计算/绘图共用） */
+  @Builder
+  keyboardPanel() {
+    Row({ space: 8 }) {
+      Column({ space: 10 }) {
+        this.sideButton('+−\n×÷', 0)
+        this.sideButton('f', 1)
+        this.sideButton('a-z', 2)
+        this.sideButton('f(x)', 3)
+        Blank()
+      }
+      .width(50)
+      .height('100%')
+
+      // 右侧整体一个面板，四个区块连贯滚动，侧栏是锚点
+      Scroll(this.kbScroller) {
+        Column({ space: 6 }) {
+          // ── 区块0：基础运算 ──
+          Column({ space: 6 }) {
+            this.keyRows(BASIC_KEYS, 'basic')
+          }
+          .width('100%')
+          .onAreaChange((_o: Area, n: Area) => {
+            this.secOffsets[0] = n.position.y as number;
+          })
+
+          // ── 区块1：函数 ──
+          Column({ space: 6 }) {
+            this.keyRows(FUNC_KEYS, 'func')
+          }
+          .width('100%')
+          .onAreaChange((_o: Area, n: Area) => {
+            this.secOffsets[1] = n.position.y as number;
+          })
+
+          // ── 区块2：字母 + 常用函数模板 ──
+          Column({ space: 6 }) {
+            this.keyRows(AZ_KEYS, 'az')
+            Divider()
+              .strokeWidth(3)
+              .color('#33888888')
+              .margin({ top: 4, bottom: 4 })
+            ForEach(AZ_TEMPLATES, (t: Template) => {
+              Row() {
+                Text(t.label)
+                  .fontSize(14)
+                  .fontColor($r('app.color.text_secondary'))
+                  .width('42%')
+                  .textAlign(TextAlign.Center)
+                Divider()
+                  .vertical(true)
+                  .height(24)
+                Text(t.expr)
+                  .fontSize(16)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('app.color.text_primary'))
+                  .layoutWeight(1)
+                  .textAlign(TextAlign.Center)
+              }
+              .width('100%')
+              .padding({ top: 14, bottom: 14 })
+              .borderRadius(12)
+              .backgroundColor($r('app.color.bg_card'))
+              .onClick(() => this.applyTemplate(t.expr))
+            }, (t: Template) => t.label)
+          }
+          .width('100%')
+          .onAreaChange((_o: Area, n: Area) => {
+            this.secOffsets[2] = n.position.y as number;
+          })
+
+          // ── 区块3：f(x) 公式模板（左分类跨行 右公式列表）──
+          Column() {
+            ForEach(TEMPLATE_GROUPS, (g: TemplateGroup, gi: number) => {
+              Row() {
+                Text(g.label)
+                  .fontSize(15)
+                  .fontColor($r('app.color.text_secondary'))
+                  .width('34%')
+                  .textAlign(TextAlign.Center)
+                Column() {
+                  ForEach(g.exprs, (ex: string, ei: number) => {
+                    Text(ex)
+                      .fontSize(15)
+                      .fontWeight(FontWeight.Medium)
+                      .fontColor($r('app.color.text_primary'))
+                      .maxLines(1)
+                      .minFontSize(10)
+                      .maxFontSize(15)
+                      .textAlign(TextAlign.Center)
+                      .width('100%')
+                      .padding({ top: 16, bottom: 16, left: 6, right: 6 })
+                      .onClick(() => this.applyTemplate(ex))
+                    if (ei < g.exprs.length - 1) {
+                      Divider().strokeWidth(0.5).color('#33888888')
+                    }
+                  }, (ex: string) => ex)
+                }
+                .layoutWeight(1)
+                .border({ width: { left: 0.5 }, color: '#33888888' })
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Center)
+              if (gi < TEMPLATE_GROUPS.length - 1) {
+                Divider().strokeWidth(0.5).color('#33888888')
+              }
+            }, (g: TemplateGroup) => g.label)
+          }
+          .width('100%')
+          .borderRadius(12)
+          .backgroundColor($r('app.color.bg_card'))
+          .onAreaChange((_o: Area, n: Area) => {
+            this.secOffsets[3] = n.position.y as number;
+          })
+        }
+        .width('100%')
+      }
+      .layoutWeight(1)
+      .height('100%')
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+      .onDidScroll(() => {
+        // 滚动时反向高亮当前区块锚点
+        const y = this.kbScroller.currentOffset().yOffset + 10;
+        let cur = 0;
+        for (let i = 3; i >= 0; i--) {
+          if (y >= this.secOffsets[i]) {
+            cur = i;
+            break;
+          }
+        }
+        if (cur !== this.panel) {
+          this.panel = cur;
+        }
+      })
+    }
+    .layoutWeight(1)
+    .width('100%')
+  }
+
+  /** 整式模板（一元一次/圆锥曲线等）：替换整个表达式 */
+  private applyTemplate(expr: string): void {
+    this.expression = expr;
+    this.cursor = expr.length;
+    this.result = '';
+    this.fracForm = '';
+  }
+
+  /** 绘图模式主键：把当前表达式作为 f(x) 绘制 */
+  private plotFromExpr(): void {
+    let s = this.expression.trim();
+    if (s.endsWith('=')) {
+      s = s.substring(0, s.length - 1).trim();
+    }
+    if (s.includes('□')) {
+      this.cursor = this.expression.indexOf('□');
+      this.plotError = '请先填写高亮的参数块';
+      return;
+    }
+    this.plotExpr = s;
+    this.drawPlot();
+  }
+
   private parser: SciParser = new SciParser();
   private lastSpanTap: number = 0;
   private kbScroller: Scroller = new Scroller();
@@ -308,6 +582,7 @@ export struct SuperCalcPage {
     this.cursor = 0;
     this.result = '';
     this.fracForm = '';
+    this.plotError = '';
   }
 
   /**
@@ -1567,59 +1842,7 @@ export struct SuperCalcPage {
             .align(Alignment.BottomEnd)
 
             // 表达式：数学式富渲染（上下标、参数块在公式对应位置），点击定位光标
-            Flex({ direction: FlexDirection.Row, wrap: FlexWrap.Wrap,
-              justifyContent: FlexAlign.End, alignItems: ItemAlign.Center }) {
-              if (this.expression.length === 0) {
-                Text('输入算式或方程…')
-                  .fontSize(16)
-                  .fontColor($r('app.color.text_secondary'))
-                this.cursorBar(26, $r('app.color.accent'), 0)
-              } else {
-                ForEach(this.buildRender(), (it: RItem, idx: number) => {
-                  if (it.cb) {
-                    // 光标高度对齐所在层级：正常位同主字号，上下标位同小块
-                    this.cursorBar(it.level === 0 ? 26 : 16, $r('app.color.accent'),
-                      it.level === 1 ? -8 : (it.level === 2 ? 8 : 0))
-                  }
-                  if (it.box) {
-                    // 参数输入块：选中态深橙+等高闪烁光标
-                    Row() {
-                      if (it.sel) {
-                        this.cursorBar(it.level === 0 ? 20 : 11, '#FF9F43', 0)
-                      }
-                    }
-                    .justifyContent(FlexAlign.Center)
-                    .width(it.level === 0 ? 22 : 14)
-                    .height(it.level === 0 ? 26 : 16)
-                    .borderRadius(4)
-                    .backgroundColor(it.sel ? '#66FF9F43' : '#2EFF9F43')
-                    .border({ width: 1, color: it.sel ? '#FF9F43' : '#66FF9F43' })
-                    .margin({ left: 1, right: 1 })
-                    .offset({ x: 0, y: it.level === 1 ? -8 : (it.level === 2 ? 8 : 0) })
-                    .onClick(() => {
-                      this.lastSpanTap = Date.now();
-                      this.cursor = it.start;
-                    })
-                  } else if (it.s.length > 0) {
-                    Text(it.s)
-                      .fontSize(it.level === 0 ? 24 : 14)
-                      .fontColor($r('app.color.text_primary'))
-                      .offset({ x: 0, y: it.level === 1 ? -8 : (it.level === 2 ? 8 : 0) })
-                      .onClick(() => {
-                        this.lastSpanTap = Date.now();
-                        this.cursor = it.end;
-                      })
-                  }
-                }, (it: RItem, idx: number) => `${idx}-${it.s}-${it.box}-${it.level}-${it.cb}-${it.sel}`)
-              }
-            }
-            .width('100%')
-            .onClick(() => {
-              // 点击空白处：光标移到末尾（元素点击 100ms 内不抢占）
-              if (Date.now() - this.lastSpanTap > 100) {
-                this.cursor = this.expression.length;
-              }
-            })
+            this.exprRender()
 
             if (this.result.length > 0) {
               Text(`${this.result}${this.fracForm.length > 0 ? `  =  ${this.fracForm}` : ''}`)
@@ -1640,269 +1863,58 @@ export struct SuperCalcPage {
           .alignItems(HorizontalAlign.End)
 
           // ══ 编辑工具条（清空 = ◀ ▶ 退格）══
-          Row({ space: 8 }) {
-            Text('🗑')
-              .fontSize(16)
-              .textAlign(TextAlign.Center)
-              .layoutWeight(1).height(42)
-              .borderRadius(12)
-              .backgroundColor('#33F5576C')
-              .onClick(() => this.clearAll())
-            Text('=')
-              .fontSize(22).fontWeight(FontWeight.Bold)
-              .fontColor(Color.White)
-              .textAlign(TextAlign.Center)
-              .layoutWeight(2).height(42)
-              .borderRadius(12)
-              .backgroundColor($r('app.color.accent'))
-              .onClick(() => this.onEquals())
-            Text('◀')
-              .fontSize(16)
-              .fontColor($r('app.color.text_primary'))
-              .textAlign(TextAlign.Center)
-              .layoutWeight(1).height(42)
-              .borderRadius(12)
-              .backgroundColor($r('app.color.bg_card'))
-              .onClick(() => this.moveCursor(-1))
-            Text('▶')
-              .fontSize(16)
-              .fontColor($r('app.color.text_primary'))
-              .textAlign(TextAlign.Center)
-              .layoutWeight(1).height(42)
-              .borderRadius(12)
-              .backgroundColor($r('app.color.bg_card'))
-              .onClick(() => this.moveCursor(1))
-            Text('⌫')
-              .fontSize(17)
-              .fontColor('#7B88FF')
-              .textAlign(TextAlign.Center)
-              .layoutWeight(1).height(42)
-              .borderRadius(12)
-              .backgroundColor('#2E3140')
-              .onClick(() => this.backspace())
-          }
-          .width('100%')
+          this.editToolbar()
 
-          // ══ 侧边栏锚点（+−×÷ / f / a-z / f(x)）+ 连续滚动面板 ══
-          Row({ space: 8 }) {
-            Column({ space: 10 }) {
-              this.sideButton('+−\n×÷', 0)
-              this.sideButton('f', 1)
-              this.sideButton('a-z', 2)
-              this.sideButton('f(x)', 3)
-              Blank()
-            }
-            .width(50)
-            .height('100%')
-
-            // 右侧整体一个面板，四个区块连贯滚动，侧栏是锚点
-            Scroll(this.kbScroller) {
-              Column({ space: 6 }) {
-                // ── 区块0：基础运算 ──
-                Column({ space: 6 }) {
-                  this.keyRows(BASIC_KEYS, 'basic')
-                }
-                .width('100%')
-                .onAreaChange((_o: Area, n: Area) => {
-                  this.secOffsets[0] = n.position.y as number;
-                })
-
-                // ── 区块1：函数 ──
-                Column({ space: 6 }) {
-                  this.keyRows(FUNC_KEYS, 'func')
-                }
-                .width('100%')
-                .onAreaChange((_o: Area, n: Area) => {
-                  this.secOffsets[1] = n.position.y as number;
-                })
-
-                // ── 区块2：字母 + 常用函数模板 ──
-                Column({ space: 6 }) {
-                  this.keyRows(AZ_KEYS, 'az')
-                  Divider()
-                    .strokeWidth(3)
-                    .color('#33888888')
-                    .margin({ top: 4, bottom: 4 })
-                  ForEach(AZ_TEMPLATES, (t: Template) => {
-                    Row() {
-                      Text(t.label)
-                        .fontSize(14)
-                        .fontColor($r('app.color.text_secondary'))
-                        .width('42%')
-                        .textAlign(TextAlign.Center)
-                      Divider()
-                        .vertical(true)
-                        .height(24)
-                      Text(t.expr)
-                        .fontSize(16)
-                        .fontWeight(FontWeight.Medium)
-                        .fontColor($r('app.color.text_primary'))
-                        .layoutWeight(1)
-                        .textAlign(TextAlign.Center)
-                    }
-                    .width('100%')
-                    .padding({ top: 14, bottom: 14 })
-                    .borderRadius(12)
-                    .backgroundColor($r('app.color.bg_card'))
-                    .onClick(() => {
-                      this.expression = t.expr;
-                      this.cursor = t.expr.length;
-                      this.result = '';
-                      this.fracForm = '';
-                    })
-                  }, (t: Template) => t.label)
-                }
-                .width('100%')
-                .onAreaChange((_o: Area, n: Area) => {
-                  this.secOffsets[2] = n.position.y as number;
-                })
-
-                // ── 区块3：f(x) 公式模板（左分类跨行 右公式列表）──
-                Column() {
-                  ForEach(TEMPLATE_GROUPS, (g: TemplateGroup, gi: number) => {
-                    Row() {
-                      Text(g.label)
-                        .fontSize(15)
-                        .fontColor($r('app.color.text_secondary'))
-                        .width('34%')
-                        .textAlign(TextAlign.Center)
-                      Column() {
-                        ForEach(g.exprs, (ex: string, ei: number) => {
-                          Text(ex)
-                            .fontSize(15)
-                            .fontWeight(FontWeight.Medium)
-                            .fontColor($r('app.color.text_primary'))
-                            .maxLines(1)
-                            .minFontSize(10)
-                            .maxFontSize(15)
-                            .textAlign(TextAlign.Center)
-                            .width('100%')
-                            .padding({ top: 16, bottom: 16, left: 6, right: 6 })
-                            .onClick(() => {
-                              this.expression = ex;
-                              this.cursor = ex.length;
-                              this.result = '';
-                              this.fracForm = '';
-                            })
-                          if (ei < g.exprs.length - 1) {
-                            Divider().strokeWidth(0.5).color('#33888888')
-                          }
-                        }, (ex: string) => ex)
-                      }
-                      .layoutWeight(1)
-                      .border({ width: { left: 0.5 }, color: '#33888888' })
-                    }
-                    .width('100%')
-                    .alignItems(VerticalAlign.Center)
-                    if (gi < TEMPLATE_GROUPS.length - 1) {
-                      Divider().strokeWidth(0.5).color('#33888888')
-                    }
-                  }, (g: TemplateGroup) => g.label)
-                }
-                .width('100%')
-                .borderRadius(12)
-                .backgroundColor($r('app.color.bg_card'))
-                .onAreaChange((_o: Area, n: Area) => {
-                  this.secOffsets[3] = n.position.y as number;
-                })
-              }
-              .width('100%')
-            }
-            .layoutWeight(1)
-            .height('100%')
-            .scrollBar(BarState.Off)
-            .edgeEffect(EdgeEffect.Spring)
-            .onDidScroll(() => {
-              // 滚动时反向高亮当前区块锚点
-              const y = this.kbScroller.currentOffset().yOffset + 10;
-              let cur = 0;
-              for (let i = 3; i >= 0; i--) {
-                if (y >= this.secOffsets[i]) {
-                  cur = i;
-                  break;
-                }
-              }
-              if (cur !== this.panel) {
-                this.panel = cur;
-              }
-            })
-          }
-          .layoutWeight(1)
-          .width('100%')
+          // ══ 侧边栏锚点 + 连续滚动键盘面板 ══
+          this.keyboardPanel()
         } else if (this.mode === 1) {
-          // ── 函数绘图 ──
-          Scroll() {
-            Column({ space: 12 }) {
-              Row({ space: 8 }) {
-                Text('f(x) =')
-                  .fontSize(16)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor($r('app.color.text_primary'))
-                TextInput({ placeholder: '如 sin x、x^2−2x+1（可写 y=…）', text: this.plotExpr })
-                  .layoutWeight(1)
-                  .height(44)
-                  .borderRadius(12)
-                  .backgroundColor($r('app.color.bg_card'))
-                  .fontColor($r('app.color.text_primary'))
-                  .onChange((v: string) => { this.plotExpr = v; })
-                  .onSubmit(() => this.drawPlot())
+          // ── 函数绘图：与计算面板同一套公式键盘 ──
+          Column({ space: 6 }) {
+            Row({ space: 6 }) {
+              Text('f(x) =')
+                .fontSize(15)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r('app.color.accent'))
+              Column() {
+                this.exprRender()
               }
-              .width('100%')
-
-              Button('绘制曲线')
-                .width('100%').height(46)
-                .fontSize(15).fontWeight(FontWeight.Bold)
-                .backgroundColor($r('app.color.accent'))
-                .onClick(() => this.drawPlot())
-
-              if (this.plotError.length > 0) {
-                Text(this.plotError)
-                  .fontSize(13)
-                  .fontColor('#F5576C')
-              }
-
-              Canvas(this.plotCtx)
-                .width('100%')
-                .height(this.PLOT_H)
-                .borderRadius(16)
-                .backgroundColor($r('app.color.bg_card'))
-                .onAreaChange((_o: Area, n: Area) => {
-                  const w = n.width as number;
-                  if (w > 0 && Math.abs(w - this.plotW) > 1) {
-                    this.plotW = w;
-                    this.drawPlot();
-                  }
-                })
-                .onReady(() => this.drawPlot())
-
-              Scroll() {
-                Row({ space: 8 }) {
-                  ForEach(['sin x', 'x^2', 'x^3−3x', '1÷x', 'tan x', 'ln x', '√x', 'x+1'], (ex: string) => {
-                    Text(ex)
-                      .fontSize(13)
-                      .fontColor($r('app.color.text_secondary'))
-                      .padding({ left: 12, right: 12, top: 7, bottom: 7 })
-                      .borderRadius(14)
-                      .backgroundColor($r('app.color.bg_card'))
-                      .onClick(() => {
-                        this.plotExpr = ex;
-                        this.drawPlot();
-                      })
-                  }, (ex: string) => ex)
-                }
-              }
-              .scrollable(ScrollDirection.Horizontal)
-              .scrollBar(BarState.Off)
-              .width('100%')
-
-              Text(`三角函数按 ${this.degMode ? 'DEG 角度' : 'RAD 弧度'} 制绘制（计算页可切换）`)
-                .fontSize(11)
-                .fontColor($r('app.color.text_secondary'))
+              .layoutWeight(1)
             }
             .width('100%')
+            .alignItems(VerticalAlign.Center)
+
+            if (this.plotError.length > 0) {
+              Text(this.plotError)
+                .fontSize(12)
+                .fontColor('#F5576C')
+                .width('100%')
+                .textAlign(TextAlign.End)
+            }
           }
-          .layoutWeight(1)
-          .scrollBar(BarState.Off)
+          .width('100%')
+          .padding({ left: 14, right: 14, top: 10, bottom: 10 })
+          .borderRadius(16)
+          .backgroundColor($r('app.color.bg_card'))
+
+          Canvas(this.plotCtx)
+            .width('100%')
+            .height(this.PLOT_H)
+            .borderRadius(16)
+            .backgroundColor($r('app.color.bg_card'))
+            .onAreaChange((_o: Area, n: Area) => {
+              const w = n.width as number;
+              if (w > 0 && Math.abs(w - this.plotW) > 1) {
+                this.plotW = w;
+                this.drawPlot();
+              }
+            })
+            .onReady(() => this.drawPlot())
+
+          // ══ 编辑工具条（清空 绘制 ◀ ▶ 退格）══
+          this.editToolbar()
+
+          // ══ 与计算面板相同的公式键盘 ══
+          this.keyboardPanel()
         } else {
           // ── 统计分析 ──
           Scroll() {
