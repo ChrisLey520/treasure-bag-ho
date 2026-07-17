@@ -95,8 +95,8 @@
       "colorMode": "auto",
       "isDefault": false,
       "updateEnabled": false,
-      "defaultDimension": "2*2",
-      "supportDimensions": ["2*2", "2*4"]
+      "defaultDimension": "2*4",
+      "supportDimensions": ["2*4"]
     }
   ]
 }
