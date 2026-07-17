@@ -142,6 +142,19 @@ export struct SuperCalcPage {
               })
           }
         }, (it: RItem, idx: number) => `${idx}-${it.s}-${it.box}-${it.level}-${it.cb}-${it.sel}`)
+        // 末尾落点：表达式最右侧的常驻点击区，点击光标直达末尾
+        Row() {
+          Text('⇥')
+            .fontSize(11)
+            .fontColor(this.cursor >= this.expression.length ? Color.Transparent : $r('app.color.text_secondary'))
+        }
+        .justifyContent(FlexAlign.Center)
+        .width(30)
+        .height(30)
+        .onClick(() => {
+          this.lastSpanTap = Date.now();
+          this.cursor = this.expression.length;
+        })
       }
     }
     .width('100%')

@@ -418,6 +418,18 @@ struct SuperCalcCard {
               })
           }
         }, (it: RItem, idx: number) => `${idx}-${it.s}-${it.box}-${it.level}-${it.cb}-${it.sel}`)
+        // 末尾落点：点击光标直达末尾
+        Row() {
+          Text('⇥')
+            .fontSize(8)
+            .fontColor(this.cursor >= this.expression.length ? Color.Transparent : $r('app.color.text_secondary'))
+        }
+        .justifyContent(FlexAlign.Center)
+        .width(20)
+        .height(20)
+        .onClick(() => {
+          this.cursor = this.expression.length;
+        })
       }
     }
     .width('100%')

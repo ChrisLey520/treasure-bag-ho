@@ -401,7 +401,9 @@ export function buildRenderItems(s: string, cursor: number): RItem[] {
 
   // 光标标注：
   // 1) 落在参数块上 → 块选中
-  // 2) 贴在左侧元素之后并继承其上下标层级（参数位连续输入时光标留在参数区内）
+  // 2) 贴在左侧元素之后（参数块之后，或上/下标层级元素之后）→ 插入同层级零宽光标，
+  //    保证隐藏字符（模板的逗号/右括号）前后的光标位置在视觉上可区分，
+  //    连续按 ▶ 时光标可见地逐位右移直至真正的末尾
   // 3) 否则画在其后元素之前；末尾兜底
   let done = false;
   for (let k = 0; k < items.length; k++) {
@@ -415,7 +417,7 @@ export function buildRenderItems(s: string, cursor: number): RItem[] {
   if (!done) {
     for (let k = items.length - 1; k >= 0; k--) {
       const it = items[k];
-      if (!it.box && it.s.length > 0 && it.end === cursor && it.level !== 0) {
+      if (it.end === cursor && (it.box || (it.s.length > 0 && it.level !== 0))) {
         items.splice(k + 1, 0, {
           s: '', box: false, level: it.level,
           start: cursor, end: cursor, cb: true, sel: false
