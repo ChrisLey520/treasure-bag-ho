@@ -37,6 +37,8 @@
     { "name": "news_card_name", "value": "60 秒早报" },
     { "name": "news_card_desc", "value": "今日要闻，每天早晨更新" },
     { "name": "schedule_card_name", "value": "今日课程" },
-    { "name": "schedule_card_desc", "value": "今天要上的课，一目了然" }
+    { "name": "schedule_card_desc", "value": "今天要上的课，一目了然" },
+    { "name": "schedule_big_card_name", "value": "今日课程 · 大" },
+    { "name": "schedule_big_card_desc", "value": "全天课程时间线" }
   ]
 }

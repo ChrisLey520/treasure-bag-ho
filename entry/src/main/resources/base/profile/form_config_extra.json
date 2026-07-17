@@ -31,6 +31,24 @@
       "updateEnabled": false,
       "defaultDimension": "2*2",
       "supportDimensions": ["2*2"]
+    },
+    {
+      "name": "widget_schedule_big",
+      "displayName": "$string:schedule_big_card_name",
+      "description": "$string:schedule_big_card_desc",
+      "src": "./ets/widget/pages/ScheduleBigCard.ets",
+      "uiSyntax": "arkts",
+      "window": {
+        "designWidth": 720,
+        "autoDesignWidth": true
+      },
+      "colorMode": "auto",
+      "isDefault": false,
+      "updateEnabled": true,
+      "scheduledUpdateTime": "00:05",
+      "updateDuration": 0,
+      "defaultDimension": "4*4",
+      "supportDimensions": ["4*4"]
     }
   ]
 }
