@@ -1,4 +1,12 @@
-const DICE_FACES: string[] = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+/** 骰子 3×3 点阵：每个点数对应的亮点位置（行优先） */
+const PIP_MAP: number[][] = [
+  [0, 0, 0, 0, 1, 0, 0, 0, 0],   // 1
+  [0, 0, 1, 0, 0, 0, 1, 0, 0],   // 2
+  [0, 0, 1, 0, 1, 0, 1, 0, 0],   // 3
+  [1, 0, 1, 0, 0, 0, 1, 0, 1],   // 4
+  [1, 0, 1, 0, 1, 0, 1, 0, 1],   // 5
+  [1, 0, 1, 1, 0, 1, 1, 0, 1]    // 6
+];
 
 @Component
 export struct CoinDicePage {
@@ -7,11 +15,13 @@ export struct CoinDicePage {
   @State diceCount: number = 1;
   @State diceResults: number[] = [];
   @State rolling: boolean = false;
+  @State spin: number = 0;        // 骰子翻滚角度（累计）
+  @State coinSpin: number = 0;    // 硬币翻转角度（累计）
   private timerId: number = -1;
 
   aboutToDisappear(): void {
     if (this.timerId >= 0) {
-      clearInterval(this.timerId);
+      clearTimeout(this.timerId);
     }
   }
 
@@ -20,16 +30,14 @@ export struct CoinDicePage {
       return;
     }
     this.rolling = true;
-    let count = 0;
-    this.timerId = setInterval(() => {
+    this.coinResult = '';
+    // 连续翻转若干整圈（180 的偶数倍保证停在正面朝上）
+    this.coinSpin += 1800;
+    this.timerId = setTimeout(() => {
+      this.timerId = -1;
       this.coinResult = Math.random() < 0.5 ? '正面' : '反面';
-      count += 1;
-      if (count >= 12) {
-        clearInterval(this.timerId);
-        this.timerId = -1;
-        this.rolling = false;
-      }
-    }, 80);
+      this.rolling = false;
+    }, 1000);
   }
 
   roll(): void {
@@ -37,20 +45,17 @@ export struct CoinDicePage {
       return;
     }
     this.rolling = true;
-    let count = 0;
-    this.timerId = setInterval(() => {
+    // 翻滚整数圈，动画结束时回到端正姿态，随后一次性定点数
+    this.spin += 1080;
+    this.timerId = setTimeout(() => {
+      this.timerId = -1;
       const results: number[] = [];
       for (let i = 0; i < this.diceCount; i++) {
         results.push(Math.floor(Math.random() * 6) + 1);
       }
       this.diceResults = results;
-      count += 1;
-      if (count >= 12) {
-        clearInterval(this.timerId);
-        this.timerId = -1;
-        this.rolling = false;
-      }
-    }, 80);
+      this.rolling = false;
+    }, 1000);
   }
 
   diceSum(): number {
@@ -59,6 +64,47 @@ export struct CoinDicePage {
       sum += v;
     }
     return sum;
+  }
+
+  /** 展示用点数数组：未出结果时按当前骰子数显示 1 点占位 */
+  shownDice(): number[] {
+    if (this.diceResults.length === this.diceCount) {
+      return this.diceResults;
+    }
+    const arr: number[] = [];
+    for (let i = 0; i < this.diceCount; i++) {
+      arr.push(1);
+    }
+    return arr;
+  }
+
+  /** 拟真骰子：白面、圆角、内凹阴影点 */
+  @Builder
+  dieFace(value: number, size: number) {
+    Column() {
+      ForEach([0, 1, 2], (row: number) => {
+        Row() {
+          ForEach([0, 1, 2], (col: number) => {
+            Text('')
+              .width(size * 0.16)
+              .height(size * 0.16)
+              .borderRadius(size * 0.08)
+              .backgroundColor(PIP_MAP[value - 1][row * 3 + col] === 1 ? '#1A1D26' : Color.Transparent)
+          }, (col: number) => `c${col}`)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.SpaceBetween)
+        .alignItems(VerticalAlign.Center)
+      }, (row: number) => `r${row}`)
+    }
+    .width(size)
+    .height(size)
+    .padding(size * 0.14)
+    .borderRadius(size * 0.18)
+    .backgroundColor(Color.White)
+    .border({ width: 1, color: '#22000000' })
+    .shadow({ radius: size * 0.12, color: '#33000000', offsetY: size * 0.05 })
   }
 
   build() {
@@ -82,11 +128,11 @@ export struct CoinDicePage {
         Blank()
 
         if (this.mode === 0) {
-          // 硬币
-          Text(this.coinResult.length === 0 ? '🪙' : (this.coinResult === '正面' ? '🌕' : '🌑'))
+          // 硬币：绕 X 轴连续翻转，停下后亮结果
+          Text(this.coinResult === '' ? '🪙' : (this.coinResult === '正面' ? '🌕' : '🌑'))
             .fontSize(120)
-            .rotate({ angle: this.rolling ? 180 : 0, x: 1, y: 0, z: 0 })
-            .animation({ duration: 80, curve: Curve.Linear })
+            .rotate({ x: 1, y: 0, z: 0, angle: this.coinSpin })
+            .animation({ duration: 1000, curve: Curve.EaseOut })
           Text(this.rolling ? '…' : (this.coinResult.length > 0 ? this.coinResult : '点击下方按钮'))
             .fontSize(this.coinResult.length > 0 && !this.rolling ? 34 : 16)
             .fontWeight(FontWeight.Bold)
@@ -98,17 +144,19 @@ export struct CoinDicePage {
             .enabled(!this.rolling)
             .onClick(() => this.flip())
         } else {
-          // 骰子
-          Row({ space: 12 }) {
-            ForEach(this.diceResults, (v: number, i: number) => {
-              Text(DICE_FACES[v - 1])
-                .fontSize(this.diceCount <= 2 ? 100 : 64)
-                .fontColor($r('app.color.text_primary'))
-            }, (v: number, i: number) => `${i}-${v}`)
-            if (this.diceResults.length === 0) {
-              Text('🎲').fontSize(100)
-            }
+          // 骰子：拟真点阵骰子，绕斜轴翻滚一段时间后停在点数
+          Row({ space: 16 }) {
+            ForEach(this.shownDice(), (v: number, i: number) => {
+              Column() {
+                this.dieFace(v, this.diceCount <= 2 ? 110 : 76)
+              }
+              .rotate({ x: 1, y: 1, z: 0.3, angle: this.spin })
+              .animation({ duration: 1000, curve: Curve.EaseOut })
+            }, (v: number, i: number) => `${i}`)
           }
+          .height(130)
+          .alignItems(VerticalAlign.Center)
+
           if (this.diceResults.length > 1 && !this.rolling) {
             Text(`总点数：${this.diceSum()}`)
               .fontSize(22)
