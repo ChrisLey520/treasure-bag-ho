@@ -8,7 +8,9 @@ export struct ColorPickerPage {
   @State hex: string = '';
   @State rgbText: string = '';
   @State loading: boolean = false;
-  private imgW: number = 0;   // 显示宽 vp
+  @State markX: number = -1;   // 取色点标记（容器坐标）
+  @State markY: number = -1;
+  private imgW: number = 0;   // 容器显示宽 vp
   private imgH: number = 0;
 
   async choose(): Promise<void> {
@@ -19,17 +21,28 @@ export struct ColorPickerPage {
       this.picked = img;
       this.hex = '';
       this.rgbText = '';
+      this.markX = -1;
+      this.markY = -1;
     }
     this.loading = false;
   }
 
   async pickColor(x: number, y: number): Promise<void> {
-    if (this.picked === undefined || this.imgW === 0) {
+    if (this.picked === undefined || this.imgW === 0 || this.imgH === 0) {
       return;
     }
-    // 显示坐标 → 原图像素坐标
-    const px = Math.max(0, Math.min(this.picked.width - 1, Math.round(x / this.imgW * this.picked.width)));
-    const py = Math.max(0, Math.min(this.picked.height - 1, Math.round(y / this.imgH * this.picked.height)));
+    // Contain 模式：图片按比例缩放居中，容器两侧/上下有留白，
+    // 必须先算出图片实际显示矩形再映射，否则坐标整体偏移（取色不准的根因）
+    const scale = Math.min(this.imgW / this.picked.width, this.imgH / this.picked.height);
+    const dispW = this.picked.width * scale;
+    const dispH = this.picked.height * scale;
+    const offX = (this.imgW - dispW) / 2;
+    const offY = (this.imgH - dispH) / 2;
+    if (x < offX || x > offX + dispW || y < offY || y > offY + dispH) {
+      return;   // 点在留白处
+    }
+    const px = Math.max(0, Math.min(this.picked.width - 1, Math.floor((x - offX) / scale)));
+    const py = Math.max(0, Math.min(this.picked.height - 1, Math.floor((y - offY) / scale)));
     try {
       const buf = new ArrayBuffer(4);
       const area: image.PositionArea = {
@@ -44,6 +57,8 @@ export struct ColorPickerPage {
       const r = bytes[0], g = bytes[1], b = bytes[2];
       this.hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0').toUpperCase()).join('');
       this.rgbText = `rgb(${r}, ${g}, ${b})`;
+      this.markX = x;
+      this.markY = y;
     } catch (err) {
       console.error('readPixels failed:', JSON.stringify(err));
     }
@@ -65,18 +80,38 @@ export struct ColorPickerPage {
     NavDestination() {
       Column({ space: 16 }) {
         if (this.picked !== undefined) {
-          Image(this.picked.pixelMap)
-            .objectFit(ImageFit.Contain)
-            .width('100%')
-            .layoutWeight(1)
-            .borderRadius(16)
-            .onAreaChange((_old: Area, area: Area) => {
-              this.imgW = area.width as number;
-              this.imgH = area.height as number;
-            })
-            .onClick((event: ClickEvent) => {
-              this.pickColor(event.x, event.y);
-            })
+          Stack({ alignContent: Alignment.TopStart }) {
+            Image(this.picked.pixelMap)
+              .objectFit(ImageFit.Contain)
+              .width('100%')
+              .height('100%')
+              .borderRadius(16)
+            // 取色点标记：环形准星
+            if (this.markX >= 0) {
+              Column()
+                .width(18)
+                .height(18)
+                .borderRadius(9)
+                .border({ width: 3, color: Color.White })
+                .shadow({ radius: 4, color: '#66000000' })
+                .position({ x: this.markX - 9, y: this.markY - 9 })
+              Column()
+                .width(10)
+                .height(10)
+                .borderRadius(5)
+                .border({ width: 2, color: '#1A1D26' })
+                .position({ x: this.markX - 5, y: this.markY - 5 })
+            }
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .onAreaChange((_old: Area, area: Area) => {
+            this.imgW = area.width as number;
+            this.imgH = area.height as number;
+          })
+          .onClick((event: ClickEvent) => {
+            this.pickColor(event.x, event.y);
+          })
 
           Row({ space: 14 }) {
             Column()
