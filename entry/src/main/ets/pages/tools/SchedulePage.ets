@@ -794,6 +794,9 @@ export struct SchedulePage {
       .borderRadius({ topLeft: 20, topRight: 20 })
       .backgroundColor($r('app.color.bg_card'))
       .width('100%')
+      .onClick(() => {
+        // 抽屉面板内点击（非输入区）不关闭：拦截，防止落到遮罩的关闭 onClick
+      })
     }
     .justifyContent(FlexAlign.End)
     .width('100%')
@@ -875,6 +878,9 @@ export struct SchedulePage {
       .borderRadius({ topLeft: 20, topRight: 20 })
       .backgroundColor($r('app.color.bg_card'))
       .width('100%')
+      .onClick(() => {
+        // 面板内点击不关闭（拦截遮罩 onClick）
+      })
     }
     .justifyContent(FlexAlign.End)
     .width('100%')
