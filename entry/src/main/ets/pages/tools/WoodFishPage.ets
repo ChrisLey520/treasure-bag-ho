@@ -116,7 +116,7 @@ export struct WoodFishPage {
           Column() {
             WoodfishMallet(130)
           }
-          .rotate({ angle: this.knocking ? -62 : -30, centerX: '50%', centerY: '8%' })
+          .rotate({ angle: this.knocking ? 62 : 30, centerX: '50%', centerY: '8%' })
           .animation({ duration: 90, curve: Curve.Sharp })
           .offset({ x: 56, y: -40 })
         }

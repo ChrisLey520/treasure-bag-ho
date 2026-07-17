@@ -62,7 +62,7 @@ struct WoodfishCard {
         Column() {
           WoodfishMallet(44)
         }
-        .rotate({ angle: this.knockKey % 2 === 0 ? -30 : -62, centerX: '50%', centerY: '8%' })
+        .rotate({ angle: this.knockKey % 2 === 0 ? 30 : 62, centerX: '50%', centerY: '8%' })
         .animation({ duration: 90, curve: Curve.Sharp })
         .offset({ x: 20, y: -13 })
       }

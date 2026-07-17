@@ -73,7 +73,7 @@ export function WoodfishIcon(size: number) {
     Column() {
       WoodfishMallet(size * 0.85)
     }
-    .rotate({ angle: -35, centerX: '50%', centerY: '10%' })
+    .rotate({ angle: 35, centerX: '50%', centerY: '10%' })
     .offset({ x: size * 0.32, y: -size * 0.3 })
   }
   .width(size * 1.25)
