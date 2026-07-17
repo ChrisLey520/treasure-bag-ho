@@ -64,6 +64,7 @@ export const TOOLS: ToolInfo[] = [
   { id: 'todo', name: '待办事项', desc: '轻量任务清单', emoji: '📝', category: ToolCategory.LIFE, gradient: ['#3494E6', '#EC6EAD'] },
   { id: 'habit', name: '习惯打卡', desc: '连续天数统计', emoji: '🌱', category: ToolCategory.LIFE, gradient: ['#56AB2F', '#A8E063'] },
   { id: 'anniversary', name: '纪念日', desc: '倒数日 · 正数日', emoji: '💝', category: ToolCategory.LIFE, gradient: ['#EC008C', '#FC6767'] },
+  { id: 'schedule', name: '课程表', desc: '单双周 · 导入导出', emoji: '📚', category: ToolCategory.LIFE, gradient: ['#5B6BF5', '#8B5CF6'] },
   { id: 'weather', name: '天气查询', desc: '全球城市 7 日预报', emoji: '🌤️', category: ToolCategory.LIFE, gradient: ['#2980B9', '#6DD5FA'] },
   { id: 'protractor', name: '角度尺', desc: '侧靠测角度', emoji: '📐', category: ToolCategory.LIFE, gradient: ['#603813', '#B29F94'] },
   { id: 'whitenoise', name: '白噪音', desc: '助眠 · 专注', emoji: '📻', category: ToolCategory.LIFE, gradient: ['#5C258D', '#4389A2'] },
