@@ -7,6 +7,10 @@
     { "name": "calc_card_name", "value": "百宝计算器" },
     { "name": "calc_card_desc", "value": "桌面直接算，无需打开应用" },
     { "name": "supercalc_card_name", "value": "超级计算器" },
-    { "name": "supercalc_card_desc", "value": "科学计算，桌面直接算" }
+    { "name": "supercalc_card_desc", "value": "科学计算，桌面直接算" },
+    { "name": "answer_card_name", "value": "答案之书" },
+    { "name": "answer_card_desc", "value": "默念问题，点水晶球得答案" },
+    { "name": "decision_card_name", "value": "随机决定" },
+    { "name": "decision_card_desc", "value": "选择困难，桌面一键决定" }
   ]
 }
