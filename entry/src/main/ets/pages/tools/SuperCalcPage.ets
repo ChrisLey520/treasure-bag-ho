@@ -88,6 +88,8 @@ export struct SuperCalcPage {
 
   private parser: SciParser = new SciParser();
   private lastSpanTap: number = 0;
+  private kbScroller: Scroller = new Scroller();
+  private secOffsets: number[] = [0, 0, 0, 0];
   private settings: RenderingContextSettings = new RenderingContextSettings(true);
   private plotCtx: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
   private readonly PLOT_H: number = 240;
@@ -452,7 +454,8 @@ export struct SuperCalcPage {
     if (k === 'x' || k === 'y' || k === 'z' || k === '(' || k === ')') {
       return true;
     }
-    return this.panel === 2 && k.length === 1 && k >= 'a' && k <= 'z';
+    // a-z 区块的字母键（e/i 在基础区块作常量，保持符号色）
+    return k === 'a' || k === 'b' || k === 'c' || k === 'h' || k === 'k' || k === 'p';
   }
 
   keyBg(k: string): ResourceColor {
@@ -635,7 +638,29 @@ export struct SuperCalcPage {
     ];
   }
 
-  /** 侧边栏圆形按钮（f(x) 按截图用橙色高亮） */
+  /** 键盘按键行（连续面板内各区块共用） */
+  @Builder
+  keyRows(layout: string[][], tag: string) {
+    ForEach(layout, (row: string[]) => {
+      Row({ space: 6 }) {
+        ForEach(row, (k: string) => {
+          Text(this.keyLabel(k))
+            .fontSize(k.length > 2 ? 12 : 18)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.keyFg(k))
+            .textAlign(TextAlign.Center)
+            .layoutWeight(1)
+            .height(52)
+            .borderRadius(12)
+            .backgroundColor(k.length === 0 ? Color.Transparent : this.keyBg(k))
+            .onClick(() => this.onKey(k))
+        }, (k: string, j: number) => `${k}-${j}`)
+      }
+      .width('100%')
+    }, (row: string[], i: number) => `${tag}r${i}`)
+  }
+
+  /** 侧边栏锚点按钮（f(x) 按截图用橙色高亮），点击滚动到对应区块 */
   @Builder
   sideButton(label: string, idx: number) {
     Text(label)
@@ -649,6 +674,11 @@ export struct SuperCalcPage {
       .backgroundColor(this.panel === idx ? (idx === 3 ? '#FF9F43' : $r('app.color.accent')) : $r('app.color.bg_card'))
       .onClick(() => {
         this.panel = idx;
+        this.kbScroller.scrollTo({
+          xOffset: 0,
+          yOffset: this.secOffsets[idx],
+          animation: { duration: 260, curve: Curve.EaseOut }
+        });
       })
   }
 
@@ -822,7 +852,7 @@ export struct SuperCalcPage {
           }
           .width('100%')
 
-          // ══ 侧边栏（+−×÷ / f / a-z / f(x)）+ 面板 ══
+          // ══ 侧边栏锚点（+−×÷ / f / a-z / f(x)）+ 连续滚动面板 ══
           Row({ space: 8 }) {
             Column({ space: 10 }) {
               this.sideButton('+−\n×÷', 0)
@@ -834,73 +864,69 @@ export struct SuperCalcPage {
             .width(50)
             .height('100%')
 
-            if (this.panel <= 2) {
-              // 可滚动键盘（参考 App：基础面板 8 行，可视约 5 行）
-              Scroll() {
+            // 右侧整体一个面板，四个区块连贯滚动，侧栏是锚点
+            Scroll(this.kbScroller) {
+              Column({ space: 6 }) {
+                // ── 区块0：基础运算 ──
                 Column({ space: 6 }) {
-                  ForEach(this.panel === 0 ? BASIC_KEYS : (this.panel === 1 ? FUNC_KEYS : AZ_KEYS), (row: string[]) => {
-                    Row({ space: 6 }) {
-                      ForEach(row, (k: string) => {
-                        Text(this.keyLabel(k))
-                          .fontSize(k.length > 2 ? 12 : 18)
-                          .fontWeight(FontWeight.Medium)
-                          .fontColor(this.keyFg(k))
-                          .textAlign(TextAlign.Center)
-                          .layoutWeight(1)
-                          .height(52)
-                          .borderRadius(12)
-                          .backgroundColor(k.length === 0 ? Color.Transparent : this.keyBg(k))
-                          .onClick(() => this.onKey(k))
-                      }, (k: string, j: number) => `${k}-${j}`)
-                    }
-                    .width('100%')
-                  }, (row: string[], i: number) => `p${this.panel}r${i}`)
-
-                  if (this.panel === 2) {
-                    // a-z 面板下方：常用函数模板（对齐截图分隔条+两列列表）
-                    Divider()
-                      .strokeWidth(3)
-                      .color('#33888888')
-                      .margin({ top: 4, bottom: 4 })
-                    ForEach(AZ_TEMPLATES, (t: Template) => {
-                      Row() {
-                        Text(t.label)
-                          .fontSize(14)
-                          .fontColor($r('app.color.text_secondary'))
-                          .width('42%')
-                          .textAlign(TextAlign.Center)
-                        Divider()
-                          .vertical(true)
-                          .height(24)
-                        Text(t.expr)
-                          .fontSize(16)
-                          .fontWeight(FontWeight.Medium)
-                          .fontColor($r('app.color.text_primary'))
-                          .layoutWeight(1)
-                          .textAlign(TextAlign.Center)
-                      }
-                      .width('100%')
-                      .padding({ top: 14, bottom: 14 })
-                      .borderRadius(12)
-                      .backgroundColor($r('app.color.bg_card'))
-                      .onClick(() => {
-                        this.expression = t.expr;
-                        this.cursor = t.expr.length;
-                        this.result = '';
-                        this.fracForm = '';
-                      })
-                    }, (t: Template) => t.label)
-                  }
+                  this.keyRows(BASIC_KEYS, 'basic')
                 }
                 .width('100%')
-              }
-              .layoutWeight(1)
-              .height('100%')
-              .scrollBar(BarState.Off)
-              .edgeEffect(EdgeEffect.Spring)
-            } else {
-              // f(x) 模板：左分类名跨行 右公式列表（对齐截图）
-              Scroll() {
+                .onAreaChange((_o: Area, n: Area) => {
+                  this.secOffsets[0] = n.position.y as number;
+                })
+
+                // ── 区块1：函数 ──
+                Column({ space: 6 }) {
+                  this.keyRows(FUNC_KEYS, 'func')
+                }
+                .width('100%')
+                .onAreaChange((_o: Area, n: Area) => {
+                  this.secOffsets[1] = n.position.y as number;
+                })
+
+                // ── 区块2：字母 + 常用函数模板 ──
+                Column({ space: 6 }) {
+                  this.keyRows(AZ_KEYS, 'az')
+                  Divider()
+                    .strokeWidth(3)
+                    .color('#33888888')
+                    .margin({ top: 4, bottom: 4 })
+                  ForEach(AZ_TEMPLATES, (t: Template) => {
+                    Row() {
+                      Text(t.label)
+                        .fontSize(14)
+                        .fontColor($r('app.color.text_secondary'))
+                        .width('42%')
+                        .textAlign(TextAlign.Center)
+                      Divider()
+                        .vertical(true)
+                        .height(24)
+                      Text(t.expr)
+                        .fontSize(16)
+                        .fontWeight(FontWeight.Medium)
+                        .fontColor($r('app.color.text_primary'))
+                        .layoutWeight(1)
+                        .textAlign(TextAlign.Center)
+                    }
+                    .width('100%')
+                    .padding({ top: 14, bottom: 14 })
+                    .borderRadius(12)
+                    .backgroundColor($r('app.color.bg_card'))
+                    .onClick(() => {
+                      this.expression = t.expr;
+                      this.cursor = t.expr.length;
+                      this.result = '';
+                      this.fracForm = '';
+                    })
+                  }, (t: Template) => t.label)
+                }
+                .width('100%')
+                .onAreaChange((_o: Area, n: Area) => {
+                  this.secOffsets[2] = n.position.y as number;
+                })
+
+                // ── 区块3：f(x) 公式模板（左分类跨行 右公式列表）──
                 Column() {
                   ForEach(TEMPLATE_GROUPS, (g: TemplateGroup, gi: number) => {
                     Row() {
@@ -943,14 +969,32 @@ export struct SuperCalcPage {
                   }, (g: TemplateGroup) => g.label)
                 }
                 .width('100%')
+                .borderRadius(12)
+                .backgroundColor($r('app.color.bg_card'))
+                .onAreaChange((_o: Area, n: Area) => {
+                  this.secOffsets[3] = n.position.y as number;
+                })
               }
-              .layoutWeight(1)
-              .height('100%')
-              .borderRadius(12)
-              .backgroundColor($r('app.color.bg_card'))
-              .scrollBar(BarState.Off)
-              .edgeEffect(EdgeEffect.Spring)
+              .width('100%')
             }
+            .layoutWeight(1)
+            .height('100%')
+            .scrollBar(BarState.Off)
+            .edgeEffect(EdgeEffect.Spring)
+            .onDidScroll(() => {
+              // 滚动时反向高亮当前区块锚点
+              const y = this.kbScroller.currentOffset().yOffset + 10;
+              let cur = 0;
+              for (let i = 3; i >= 0; i--) {
+                if (y >= this.secOffsets[i]) {
+                  cur = i;
+                  break;
+                }
+              }
+              if (cur !== this.panel) {
+                this.panel = cur;
+              }
+            })
           }
           .layoutWeight(1)
           .width('100%')
