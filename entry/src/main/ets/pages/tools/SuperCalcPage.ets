@@ -144,6 +144,7 @@ export struct SuperCalcPage {
 
   // ════════ 光标编辑 ════════
   insertText(s: string): void {
+    this.consumeTrailingEq();
     // 光标停在占位块 □ 上时，输入直接替换该块
     let after = this.expression.substring(this.cursor);
     if (after.startsWith('□')) {
@@ -157,6 +158,7 @@ export struct SuperCalcPage {
 
   /** 插入含 □ 占位块的模板，光标落在第一个 □ 上 */
   insertTemplate(s: string): void {
+    this.consumeTrailingEq();
     let after = this.expression.substring(this.cursor);
     if (after.startsWith('□')) {
       after = after.substring(1);
@@ -167,6 +169,56 @@ export struct SuperCalcPage {
     this.cursor = boxIdx >= 0 ? start + boxIdx : start + s.length;
     this.result = '';
     this.fracForm = '';
+  }
+
+  /**
+   * 式尾由 = 键追加的"待求值 ="：继续输入其它内容时先移除（= 被新内容替换）。
+   * 例外：方程写到一半（左边含未知数且该式尚无 =）时这个 = 是方程本身的，保留等右边
+   */
+  private consumeTrailingEq(): void {
+    if (!this.expression.endsWith('=')) {
+      return;
+    }
+    const body = this.expression.substring(0, this.expression.length - 1);
+    const segs = body.split(/[;；]/);
+    const last = segs[segs.length - 1];
+    if (last.includes('=') || !this.hasFreeVar(last)) {
+      this.expression = body;
+      if (this.cursor > body.length) {
+        this.cursor = body.length;
+      }
+    }
+  }
+
+  /**
+   * = 键：在式尾补显 = 并执行求解/求值。
+   * 方程写到一半（当前式含未知数且尚无 =）时只补 =，等待输入右边不执行
+   */
+  private onEquals(): void {
+    if (this.expression.trim().length === 0) {
+      return;
+    }
+    if (this.expression.includes('□')) {
+      // 还有参数块未填：不补 =，直接提示并把光标落到该块
+      this.runCalc();
+      return;
+    }
+    if (this.expression.endsWith('=')) {
+      // 已处于待求状态，重按 = 直接执行
+      this.runCalc();
+      return;
+    }
+    const segs = this.expression.split(/[;；]/);
+    const last = segs[segs.length - 1];
+    this.expression += '=';
+    this.cursor = this.expression.length;
+    if (!last.includes('=') && this.hasFreeVar(last)) {
+      // 这是方程本身的 =：等待右边
+      this.result = '';
+      this.fracForm = '';
+      return;
+    }
+    this.runCalc();
   }
 
   /** 剔除 ∫(…)/lim(…) 整段后检测自由变量（积分/极限变量不算未知数） */
@@ -474,6 +526,13 @@ export struct SuperCalcPage {
       this.fracForm = '';
       return;
     }
+    // = 键在式尾补显的"待求 ="：执行前先剥掉
+    if (s.endsWith('=')) {
+      s = s.substring(0, s.length - 1).trim();
+      if (s.length === 0) {
+        return;
+      }
+    }
     // 方程组：分号分隔多个含 = 的式子
     if (s.includes(';') || s.includes('；')) {
       const eqs = s.split(/[;；]/).map((p: string): string => p.trim()).filter((p: string): boolean => p.length > 0);
@@ -485,15 +544,7 @@ export struct SuperCalcPage {
       }
       s = eqs.length === 1 ? eqs[0] : s;
     }
-    // 末尾孤立的 = （右边为空）：按"按 = 出结果"处理，直接求值左边
-    let eqIdx = s.indexOf('=');
-    if (eqIdx >= 0 && s.substring(eqIdx + 1).trim().length === 0) {
-      s = s.substring(0, eqIdx).trim();
-      if (s.length === 0) {
-        return;
-      }
-      eqIdx = s.indexOf('=');
-    }
+    const eqIdx = s.indexOf('=');
     // y= / f(x)= 前缀只是函数写法，不当方程；其余含 = 走方程求解
     const lhsKey = eqIdx >= 0 ? s.substring(0, eqIdx).replace(/\s/g, '').toLowerCase() : '';
     const isEquation = eqIdx >= 0 && lhsKey !== 'y' && lhsKey !== 'f(x)' && lhsKey !== 'fx' && lhsKey !== 'f';
@@ -1016,6 +1067,11 @@ export struct SuperCalcPage {
     }
     if (k === 'DEG') {
       this.degMode = !this.degMode;
+      return;
+    }
+    // = 键：式尾补显 = 并求解/求值（方程写一半时只补 = 等右边）
+    if (k === '=') {
+      this.onEquals();
       return;
     }
     // 模板键 → 插入 □ 占位块，光标落在首个 □（输入即替换）
@@ -1583,7 +1639,7 @@ export struct SuperCalcPage {
           .backgroundColor($r('app.color.bg_card'))
           .alignItems(HorizontalAlign.End)
 
-          // ══ 编辑工具条（对齐截图：清空 回车执行 ◀ ▶ 退格）══
+          // ══ 编辑工具条（清空 = ◀ ▶ 退格）══
           Row({ space: 8 }) {
             Text('🗑')
               .fontSize(16)
@@ -1592,14 +1648,14 @@ export struct SuperCalcPage {
               .borderRadius(12)
               .backgroundColor('#33F5576C')
               .onClick(() => this.clearAll())
-            Text('↵')
-              .fontSize(20).fontWeight(FontWeight.Bold)
+            Text('=')
+              .fontSize(22).fontWeight(FontWeight.Bold)
               .fontColor(Color.White)
               .textAlign(TextAlign.Center)
               .layoutWeight(2).height(42)
               .borderRadius(12)
               .backgroundColor($r('app.color.accent'))
-              .onClick(() => this.runCalc())
+              .onClick(() => this.onEquals())
             Text('◀')
               .fontSize(16)
               .fontColor($r('app.color.text_primary'))
