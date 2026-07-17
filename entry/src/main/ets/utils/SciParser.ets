@@ -245,14 +245,14 @@ export class SciParser {
                 return Math.log(args[1]) / Math.log(args[0]);
               } catch (err) {
                 const msg = (err as Error).message;
-                if (msg.includes('底数') || msg.includes('真数')) {
+                if (msg.includes('底数需') || msg.includes('真数需')) {
                   throw new Error(msg);
                 }
                 this.pos = save;   // 非双参形式，回退按单参 log 解析
               }
             }
           }
-          const arg = this.parseUnary();
+          const arg = this.parseFuncArg();
           let name = fn;
           if (fn === 'arcsin') { name = 'asin'; }
           else if (fn === 'arccos') { name = 'acos'; }
@@ -265,10 +265,17 @@ export class SciParser {
     }
     // 数字
     let num = '';
+    let dots = 0;
     this.skipSpace();
     while (this.pos < this.src.length) {
       const c = this.src[this.pos];
       if ((c >= '0' && c <= '9') || c === '.') {
+        if (c === '.') {
+          dots += 1;
+          if (dots > 1) {
+            throw new Error('数字中出现多个小数点');
+          }
+        }
         num += c;
         this.pos += 1;
       } else {
@@ -283,6 +290,24 @@ export class SciParser {
       throw new Error(`无效数字 "${num}"`);
     }
     return v;
+  }
+
+  /**
+   * 函数参数：带括号时只取括号组，f(x)^2 = (f(x))^2、abs(−3)! = 3!；
+   * 不带括号时按一元解析（sin 30^2 = sin(900)，与常规计算器一致）
+   */
+  private parseFuncArg(): number {
+    this.skipSpace();
+    if (this.peek() === '(') {
+      this.pos += 1;
+      const v = this.parseExpr();
+      if (this.peek() !== ')') {
+        throw new Error('缺少右括号');
+      }
+      this.pos += 1;
+      return v;
+    }
+    return this.parseUnary();
   }
 
   private applyFunc(fn: string, x: number): number {
@@ -419,9 +444,9 @@ export class SciParser {
         y = NaN;
       }
       if (isNaN(y) || !isFinite(y)) {
-        // 端点/奇点容错：内缩半步取值
+        // 端点/奇点容错：内缩半步取值（过小的内缩在 1/√x 类奇点上仍会爆大值）
         try {
-          y = f(x + (i === 0 ? h : -h) * 1e-6);
+          y = f(x + (i === 0 ? h : -h) * 0.5);
         } catch (err) {
           y = NaN;
         }
@@ -648,7 +673,10 @@ export function fmtResult(v: number): string {
     return v > 0 ? '∞' : '-∞';
   }
   if (v !== 0 && (Math.abs(v) >= 1e12 || Math.abs(v) < 1e-9)) {
-    return v.toExponential(6).replace('e+', '×10^').replace('e-', '×10^-');
+    return v.toExponential(6)
+      .replace(/\.?0+e/, 'e')
+      .replace('e+', '×10^')
+      .replace('e-', '×10^-');
   }
   return parseFloat(v.toPrecision(12)).toString();
 }
