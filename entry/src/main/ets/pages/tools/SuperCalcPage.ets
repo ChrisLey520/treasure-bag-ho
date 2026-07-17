@@ -637,22 +637,141 @@ export struct SuperCalcPage {
     ];
   }
 
+  /** 按键图标里的参数输入块 */
+  @Builder
+  pbox(w: number, h: number) {
+    Text('')
+      .width(w)
+      .height(h)
+      .borderRadius(2)
+      .backgroundColor('#4D8A8F9C')
+  }
+
+  /** 按键面：多参数公式键在对应位置绘制输入块（上标右上、积分上下限等） */
+  @Builder
+  keyFace(k: string) {
+    if (k === 'log□') {
+      // log_□(□)：底数块右下，真数块随后
+      Row() {
+        Text('log').fontSize(14).fontColor('#7B88FF')
+        this.pbox(7, 7)
+        Row() {
+          this.pbox(10, 12)
+        }.margin({ left: 3 })
+      }
+      .alignItems(VerticalAlign.Center)
+    } else if (k === '□^□') {
+      // □ 的右上角小块（指数位）
+      Row() {
+        this.pbox(12, 13)
+        Row() {
+          this.pbox(7, 8)
+        }.margin({ left: 2 }).offset({ x: 0, y: -7 })
+      }
+      .alignItems(VerticalAlign.Center)
+    } else if (k === '√□') {
+      Row() {
+        Text('√').fontSize(19).fontColor('#7B88FF')
+        this.pbox(10, 11)
+      }
+      .alignItems(VerticalAlign.Center)
+    } else if (k === '□/□') {
+      // 分数：上块 / 分数线 / 下块
+      Column({ space: 2 }) {
+        this.pbox(9, 8)
+        Text('').width(16).height(1.2).backgroundColor('#7B88FF')
+        this.pbox(9, 8)
+      }
+      .alignItems(HorizontalAlign.Center)
+    } else if (k === '|□|') {
+      Row({ space: 2 }) {
+        Text('|').fontSize(16).fontColor('#7B88FF')
+        this.pbox(9, 10)
+        Text('|').fontSize(16).fontColor('#7B88FF')
+      }
+      .alignItems(VerticalAlign.Center)
+    } else if (k === '□!') {
+      Row({ space: 2 }) {
+        this.pbox(10, 11)
+        Text('!').fontSize(17).fontColor('#7B88FF')
+      }
+      .alignItems(VerticalAlign.Center)
+    } else if (k === '∫□') {
+      // 积分：上限块右上、下限块右下
+      Row() {
+        Text('∫').fontSize(22).fontColor('#7B88FF')
+        Column({ space: 9 }) {
+          this.pbox(7, 7)
+          this.pbox(7, 7)
+        }.margin({ left: 2 })
+      }
+      .alignItems(VerticalAlign.Center)
+    } else if (k === 'lim') {
+      // 极限：lim 下方 □→□
+      Column({ space: 1 }) {
+        Text('lim').fontSize(12).fontColor('#7B88FF')
+        Row({ space: 1 }) {
+          this.pbox(6, 6)
+          Text('→').fontSize(9).fontColor('#7B88FF')
+          this.pbox(6, 6)
+        }
+        .alignItems(VerticalAlign.Center)
+      }
+      .alignItems(HorizontalAlign.Center)
+    } else if (k === 'A□' || k === 'C□') {
+      // 排列组合：上标块右上、下标块右下
+      Row() {
+        Text(k.substring(0, 1)).fontSize(17).fontColor('#7B88FF')
+        Column({ space: 6 }) {
+          this.pbox(7, 7)
+          this.pbox(7, 7)
+        }.margin({ left: 2 })
+      }
+      .alignItems(VerticalAlign.Center)
+    } else if (k === 'log₂' || k === 'log₁₀' || k === 'ln') {
+      Row({ space: 2 }) {
+        Text(k).fontSize(k === 'log₁₀' ? 11 : 13).fontColor('#7B88FF')
+        this.pbox(9, 10)
+      }
+      .alignItems(VerticalAlign.Center)
+    } else if (k === '°') {
+      Row({ space: 1 }) {
+        this.pbox(8, 9)
+        Text('°').fontSize(16).fontColor('#7B88FF')
+      }
+      .alignItems(VerticalAlign.Center)
+    } else if (k === '′″') {
+      Row({ space: 1 }) {
+        this.pbox(7, 8)
+        Text('′').fontSize(13).fontColor('#7B88FF')
+        this.pbox(7, 8)
+        Text('″').fontSize(13).fontColor('#7B88FF')
+      }
+      .alignItems(VerticalAlign.Center)
+    } else {
+      Text(this.keyLabel(k))
+        .fontSize(k.length > 2 ? 12 : 18)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(this.keyFg(k))
+    }
+  }
+
   /** 键盘按键行（连续面板内各区块共用） */
   @Builder
   keyRows(layout: string[][], tag: string) {
     ForEach(layout, (row: string[]) => {
       Row({ space: 6 }) {
         ForEach(row, (k: string) => {
-          Text(this.keyLabel(k))
-            .fontSize(k.length > 2 ? 12 : 18)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(this.keyFg(k))
-            .textAlign(TextAlign.Center)
-            .layoutWeight(1)
-            .height(52)
-            .borderRadius(12)
-            .backgroundColor(k.length === 0 ? Color.Transparent : this.keyBg(k))
-            .onClick(() => this.onKey(k))
+          Row() {
+            this.keyFace(k)
+          }
+          .justifyContent(FlexAlign.Center)
+          .alignItems(VerticalAlign.Center)
+          .layoutWeight(1)
+          .height(52)
+          .borderRadius(12)
+          .backgroundColor(k.length === 0 ? Color.Transparent : this.keyBg(k))
+          .onClick(() => this.onKey(k))
         }, (k: string, j: number) => `${k}-${j}`)
       }
       .width('100%')
