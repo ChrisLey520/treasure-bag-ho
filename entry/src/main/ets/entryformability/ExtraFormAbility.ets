@@ -105,6 +105,9 @@ export default class ExtraFormAbility extends FormExtensionAbility {
           .catch((err: Error) => console.error('updateForm failed:', err.message));
       }
     });
+    // 链式定时：10 分钟后再次拉起（updateDuration 最小粒度 30 分钟，用 nextRefresh 提频）
+    formProvider.setFormNextRefreshTime(formId, 10)
+      .catch((err: Error) => console.error('setNextRefresh failed:', err.message));
   }
 
   onAddForm(want: Want): formBindingData.FormBindingData {
