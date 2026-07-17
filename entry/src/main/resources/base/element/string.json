@@ -25,6 +25,12 @@
     { "name": "woodfish_card_name", "value": "电子木鱼" },
     { "name": "woodfish_card_desc", "value": "桌面敲木鱼，功德 +1" },
     { "name": "ledger_card_name", "value": "极简记账" },
-    { "name": "ledger_card_desc", "value": "本月收支，一目了然" }
+    { "name": "ledger_card_desc", "value": "本月收支，一目了然" },
+    { "name": "calendar_card_name", "value": "万年历" },
+    { "name": "calendar_card_desc", "value": "日期农历干支，每天更新" },
+    { "name": "coindice_card_name", "value": "硬币骰子" },
+    { "name": "coindice_card_desc", "value": "桌面摇骰子抛硬币" },
+    { "name": "rainbow_card_name", "value": "彩虹屁" },
+    { "name": "rainbow_card_desc", "value": "夸人金句，点击换一句" }
   ]
 }

@@ -15,7 +15,7 @@ const KEY_LEDGER = 'ledger';             // 与 LedgerPage 共用的 JSON 数组
 const KEY_FORM_PREFIX = 'card_type_';    // formId → formName 映射（数据类卡片刷新时区分）
 /** 数据类卡片（添加时记录类型、onUpdateForm 按类型刷新） */
 const DATA_CARDS: string[] = ['widget_water', 'widget_anniversary',
-  'widget_habit', 'widget_todo', 'widget_woodfish', 'widget_ledger'];
+  'widget_habit', 'widget_todo', 'widget_woodfish', 'widget_ledger', 'widget_calendar'];
 
 interface CardData {
   running: boolean;
@@ -96,6 +96,10 @@ interface LedgerCardData {
   expense: string;
   income: string;
   monthText: string;
+}
+
+interface StampData {
+  stamp: number;
 }
 
 function fmtHm(ts: number): string {
@@ -304,6 +308,10 @@ export default class EntryFormAbility extends FormExtensionAbility {
     }
     if (formName === 'widget_woodfish') {
       return formBindingData.createFormBindingData(this.woodfishData(pref));
+    }
+    if (formName === 'widget_calendar') {
+      // 万年历卡片自算日期，仅推刷新信号触发重渲染
+      return formBindingData.createFormBindingData({ stamp: Date.now() } as StampData);
     }
     return formBindingData.createFormBindingData(this.ledgerData(pref));
   }
