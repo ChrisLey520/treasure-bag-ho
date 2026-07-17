@@ -99,15 +99,13 @@ export default class ExtraFormAbility extends FormExtensionAbility {
   }
 
   private refreshWeather2(formId: string, pref: preferences.Preferences): void {
+    // 刷新节奏由 updateDuration=1（30 分钟）驱动
     this.fetchWeather2(pref).then((data: Weather2CardData | undefined): void => {
       if (data !== undefined) {
         formProvider.updateForm(formId, formBindingData.createFormBindingData(data))
           .catch((err: Error) => console.error('updateForm failed:', err.message));
       }
     });
-    // 链式定时：10 分钟后再次拉起（updateDuration 最小粒度 30 分钟，用 nextRefresh 提频）
-    formProvider.setFormNextRefreshTime(formId, 10)
-      .catch((err: Error) => console.error('setNextRefresh failed:', err.message));
   }
 
   onAddForm(want: Want): formBindingData.FormBindingData {

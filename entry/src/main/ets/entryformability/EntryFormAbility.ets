@@ -513,15 +513,13 @@ export default class EntryFormAbility extends FormExtensionAbility {
   /** 网络卡片刷新：异步拉取成功才回推（失败保留卡面旧数据） */
   private refreshNetCard(formId: string, formName: string, pref: preferences.Preferences): void {
     if (formName === 'widget_weather') {
+      // 刷新节奏由 updateDuration=1（30 分钟）驱动
       this.fetchWeather(pref).then((data: WeatherCardData | undefined): void => {
         if (data !== undefined) {
           formProvider.updateForm(formId, formBindingData.createFormBindingData(data))
             .catch((err: Error) => console.error('updateForm failed:', err.message));
         }
       });
-      // 链式定时：10 分钟后再次拉起（updateDuration 最小粒度 30 分钟，用 nextRefresh 提频兜底）
-      formProvider.setFormNextRefreshTime(formId, 10)
-        .catch((err: Error) => console.error('setNextRefresh failed:', err.message));
       return;
     }
     this.fetchNews().then((data: NewsCardData | undefined): void => {
