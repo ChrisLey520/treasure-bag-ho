@@ -12,6 +12,51 @@ export struct ColorPickerPage {
   @State markY: number = -1;
   private imgW: number = 0;   // 容器显示宽 vp
   private imgH: number = 0;
+  private rbSwap: number = -1;   // readPixels 通道序自检：-1 未测 0 正常 1 红蓝对调
+  @State manualSwap: boolean = false;   // 手动纠正开关（自检失灵时兜底）
+  private raw0: number = 0;   // 最近一次读到的原始三字节（重算用）
+  private raw1: number = 0;
+  private raw2: number = 0;
+
+  /**
+   * 运行时自检 readPixels 的字节序：构造一个已知颜色 (R=200,G=10,B=30)
+   * 的 RGBA PixelMap，读回看首字节是 R 还是 B。
+   * 平台怪癖：readPixels 输出可能固定为 BGRA 排列（与 PixelMap 声明格式无关），
+   * 元数据判断不可靠，只有实测可信。
+   */
+  private async detectRbSwap(): Promise<boolean> {
+    if (this.rbSwap >= 0) {
+      return this.rbSwap === 1;
+    }
+    try {
+      const src = new ArrayBuffer(4);
+      const sa = new Uint8Array(src);
+      sa[0] = 200;
+      sa[1] = 10;
+      sa[2] = 30;
+      sa[3] = 255;
+      const pm = await image.createPixelMap(src, {
+        size: { width: 1, height: 1 },
+        pixelFormat: image.PixelMapFormat.RGBA_8888,
+        alphaType: image.AlphaType.OPAQUE
+      });
+      const out = new ArrayBuffer(4);
+      const area: image.PositionArea = {
+        pixels: out,
+        offset: 0,
+        stride: 4,
+        region: { size: { width: 1, height: 1 }, x: 0, y: 0 }
+      };
+      await pm.readPixels(area);
+      const oa = new Uint8Array(out);
+      this.rbSwap = (oa[0] === 30 && oa[2] === 200) ? 1 : 0;
+      pm.release();
+    } catch (err) {
+      console.error('detect swap failed:', JSON.stringify(err));
+      this.rbSwap = 0;
+    }
+    return this.rbSwap === 1;
+  }
 
   async choose(): Promise<void> {
     this.loading = true;
@@ -53,27 +98,35 @@ export struct ColorPickerPage {
       };
       await this.picked.pixelMap.readPixels(area);
       const bytes = new Uint8Array(buf);
-      // 按实际像素格式取通道（BGRA 红蓝对调过一次，务必判断格式）
-      const fmt = this.picked.pixelMap.getImageInfoSync().pixelFormat;
-      let r = 0;
-      let g = 0;
-      let b = 0;
-      if (fmt === image.PixelMapFormat.BGRA_8888) {
-        b = bytes[0];
-        g = bytes[1];
-        r = bytes[2];
-      } else {
-        r = bytes[0];
-        g = bytes[1];
-        b = bytes[2];
-      }
-      this.hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0').toUpperCase()).join('');
-      this.rgbText = `rgb(${r}, ${g}, ${b})`;
+      this.raw0 = bytes[0];
+      this.raw1 = bytes[1];
+      this.raw2 = bytes[2];
+      // 通道序由运行时自检决定（元数据不可靠），手动开关可再反转兜底
+      const swapped = await this.detectRbSwap();
+      this.applyColor(swapped !== this.manualSwap);
       this.markX = x;
       this.markY = y;
     } catch (err) {
       console.error('readPixels failed:', JSON.stringify(err));
     }
+  }
+
+  /** 按当前通道序把原始字节转为颜色显示 */
+  private applyColor(swapped: boolean): void {
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    if (swapped) {
+      b = this.raw0;
+      g = this.raw1;
+      r = this.raw2;
+    } else {
+      r = this.raw0;
+      g = this.raw1;
+      b = this.raw2;
+    }
+    this.hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0').toUpperCase()).join('');
+    this.rgbText = `rgb(${r}, ${g}, ${b})`;
   }
 
   copyHex(): void {
@@ -143,9 +196,20 @@ export struct ColorPickerPage {
             .alignItems(HorizontalAlign.Start)
             .layoutWeight(1)
             if (this.hex.length > 0) {
-              Text('复制')
-                .fontSize(14).fontColor($r('app.color.accent'))
-                .onClick(() => this.copyHex())
+              Column({ space: 6 }) {
+                Text('复制')
+                  .fontSize(14).fontColor($r('app.color.accent'))
+                  .onClick(() => this.copyHex())
+                Text('⇄')
+                  .fontSize(13)
+                  .fontColor($r('app.color.text_secondary'))
+                  .onClick(() => {
+                    // 颜色仍不对时点此手动红蓝互换
+                    this.manualSwap = !this.manualSwap;
+                    const auto = this.rbSwap === 1;
+                    this.applyColor(auto !== this.manualSwap);
+                  })
+              }
             }
           }
           .width('100%')
