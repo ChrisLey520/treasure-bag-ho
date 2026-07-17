@@ -1,5 +1,5 @@
 import { textRecognition } from '@kit.CoreVisionKit';
-import { pasteboard } from '@kit.BasicServicesKit';
+import { pasteboard, BusinessError } from '@kit.BasicServicesKit';
 import { ImageUtil, PickedImage } from '../../utils/ImageUtil';
 
 @Component
@@ -21,13 +21,33 @@ export struct OcrPage {
     this.picked?.pixelMap.release();
     this.picked = img;
     this.resultText = '';
+    let inited = false;
     try {
+      // 文字识别器需先 init（否则部分设备/版本首调直接抛错）
+      await textRecognition.init();
+      inited = true;
       const request: textRecognition.VisionInfo = { pixelMap: img.pixelMap };
-      const result = await textRecognition.recognizeText(request);
+      const config: textRecognition.TextRecognitionConfiguration = { isDirectionDetectionSupported: false };
+      const result = await textRecognition.recognizeText(request, config);
       this.resultText = result.value.length > 0 ? result.value : '（未识别到文字）';
     } catch (err) {
+      const e = err as BusinessError;
       console.error('ocr failed:', JSON.stringify(err));
-      this.resultText = '识别失败，请重试';
+      if (e.code === 1008601001) {
+        this.resultText = '当前设备不支持文字识别\n（需华为设备 + HMS Core，模拟器不可用）';
+      } else if (e.code === 1008601002) {
+        this.resultText = '图片过大或格式不支持，请换一张';
+      } else {
+        this.resultText = `识别失败（错误码 ${e.code ?? '未知'}）\n${e.message ?? ''}`;
+      }
+    } finally {
+      if (inited) {
+        try {
+          await textRecognition.release();
+        } catch (err) {
+          console.error('ocr release failed:', JSON.stringify(err));
+        }
+      }
     }
     this.working = false;
   }
